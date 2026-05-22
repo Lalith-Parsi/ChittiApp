@@ -149,59 +149,71 @@ Explicitly excluded. Documented to prevent scope creep. See FEATURES.md "Anti-Fe
 
 ## Traceability
 
-Empty initially — populated by `gsd-roadmapper` in the next step. Each requirement maps to exactly one phase. Unmapped requirements = roadmap gap.
+Every v1 requirement is mapped to exactly one roadmap phase. See `.planning/ROADMAP.md` for phase definitions and success criteria.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| AUTH-04 | TBD | Pending |
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| DATA-03 | TBD | Pending |
-| DATA-04 | TBD | Pending |
-| DATA-05 | TBD | Pending |
-| GROUP-01 | TBD | Pending |
-| GROUP-02 | TBD | Pending |
-| GROUP-03 | TBD | Pending |
-| GROUP-04 | TBD | Pending |
-| GROUP-05 | TBD | Pending |
-| HOME-01 | TBD | Pending |
-| HOME-02 | TBD | Pending |
-| CYCLE-01 | TBD | Pending |
-| CYCLE-02 | TBD | Pending |
-| CYCLE-03 | TBD | Pending |
-| CYCLE-04 | TBD | Pending |
-| DRAW-01 | TBD | Pending |
-| DRAW-02 | TBD | Pending |
-| DRAW-03 | TBD | Pending |
-| DRAW-04 | TBD | Pending |
-| DRAW-05 | TBD | Pending |
-| MATH-01 | TBD | Pending |
-| MATH-02 | TBD | Pending |
-| MATH-03 | TBD | Pending |
-| MATH-04 | TBD | Pending |
-| VIEW-01 | TBD | Pending |
-| VIEW-02 | TBD | Pending |
-| VIEW-03 | TBD | Pending |
-| SOC-01 | TBD | Pending |
-| SOC-02 | TBD | Pending |
-| SOC-03 | TBD | Pending |
-| UX-01 | TBD | Pending |
-| UX-02 | TBD | Pending |
-| UX-03 | TBD | Pending |
-| STORE-01 | TBD | Pending |
-| STORE-02 | TBD | Pending |
-| STORE-03 | TBD | Pending |
-| STORE-04 | TBD | Pending |
-| STORE-05 | TBD | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| DATA-01 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| DATA-04 | Phase 1 | Pending |
+| DATA-05 | Phase 2 | Pending |
+| GROUP-01 | Phase 3 | Pending |
+| GROUP-02 | Phase 3 | Pending |
+| GROUP-03 | Phase 3 | Pending |
+| GROUP-04 | Phase 3 | Pending |
+| GROUP-05 | Phase 3 | Pending |
+| HOME-01 | Phase 3 | Pending |
+| HOME-02 | Phase 3 | Pending |
+| CYCLE-01 | Phase 4 | Pending |
+| CYCLE-02 | Phase 4 | Pending |
+| CYCLE-03 | Phase 4 | Pending |
+| CYCLE-04 | Phase 4 | Pending |
+| DRAW-01 | Phase 5 | Pending |
+| DRAW-02 | Phase 5 | Pending |
+| DRAW-03 | Phase 5 | Pending |
+| DRAW-04 | Phase 5 | Pending |
+| DRAW-05 | Phase 5 | Pending |
+| MATH-01 | Phase 5 | Pending |
+| MATH-02 | Phase 5 | Pending |
+| MATH-03 | Phase 5 | Pending |
+| MATH-04 | Phase 5 | Pending |
+| VIEW-01 | Phase 4 | Pending |
+| VIEW-02 | Phase 4 | Pending |
+| VIEW-03 | Phase 5 | Pending |
+| SOC-01 | Phase 5 | Pending |
+| SOC-02 | Phase 5 | Pending |
+| SOC-03 | Phase 2 | Pending |
+| UX-01 | Phase 2 | Pending |
+| UX-02 | Phase 2 | Pending |
+| UX-03 | Phase 2 | Pending |
+| STORE-01 | Phase 6 | Pending |
+| STORE-02 | Phase 6 | Pending |
+| STORE-03 | Phase 6 | Pending |
+| STORE-04 | Phase 6 | Pending |
+| STORE-05 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 43 total
-- Mapped to phases: 0
-- Unmapped: 43 ⚠️ (will be 0 after roadmapper runs)
+- Mapped to phases: 43
+- Unmapped: 0 ✓
+
+**Per-phase counts:**
+
+| Phase | Reqs |
+|-------|------|
+| Phase 1 — Native Phone Auth & Env Config | 5 |
+| Phase 2 — Multi-User Data Model & Security | 8 |
+| Phase 3 — Group Setup & Membership | 7 |
+| Phase 4 — Cycle Ledger & Payments | 6 |
+| Phase 5 — Draws + Cycle Math (Money-Conservation) | 12 |
+| Phase 6 — Store Submission Readiness | 5 |
+| **Total** | **43** |
 
 ---
 *Requirements defined: 2026-05-22*
-*Last updated: 2026-05-22 after initial definition*
+*Last updated: 2026-05-22 after roadmap creation (traceability populated)*
