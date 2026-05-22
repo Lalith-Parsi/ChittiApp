@@ -1,7 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, Alert, Modal } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { signOut } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { useAuth } from '../lib/AuthContext';
 import { ChittiGroup } from '../types';
 import { getGroups, deleteGroup } from '../storage';
 import GroupCard from '../components/GroupCard';
@@ -37,10 +40,20 @@ export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { user } = useAuth();
 
   const [groups, setGroups] = useState<ChittiGroup[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
 
   useFocusEffect(useCallback(() => { getGroups().then(setGroups); }, []));
+
+  const handleSignOut = () => {
+    setShowSettings(false);
+    Alert.alert('Sign out?', 'You can sign back in with the same phone number.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => signOut(auth).catch(() => {}) },
+    ]);
+  };
 
   const active = groups.filter(g => g.isActive !== false);
 
@@ -67,10 +80,41 @@ export default function HomeScreen() {
   const Header = (
     <View style={styles.header}>
       <Wordmark size={26} color={colors.text} dotColor={colors.accent} />
-      <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn} hitSlop={8}>
-        <Text style={styles.themeBtnText}>{isDark ? '☀' : '☾'}</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn} hitSlop={8}>
+          <Text style={styles.themeBtnText}>{isDark ? '☀' : '☾'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.themeBtn} hitSlop={8}>
+          <Text style={styles.themeBtnText}>···</Text>
+        </TouchableOpacity>
+      </View>
     </View>
+  );
+
+  const SettingsSheet = (
+    <Modal visible={showSettings} transparent animationType="fade" onRequestClose={() => setShowSettings(false)}>
+      <TouchableOpacity activeOpacity={1} style={{ flex: 1, backgroundColor: colors.overlay }} onPress={() => setShowSettings(false)}>
+        <View style={styles.settingsSheet}>
+          <View style={{ alignItems: 'center', marginBottom: 18 }}>
+            <View style={styles.settingsAvatar}>
+              <Text style={{ fontSize: 22, ...fonts.semiBold, color: colors.bg }}>
+                {(user?.phoneNumber ?? '?').slice(-2)}
+              </Text>
+            </View>
+            <Text style={[{ marginTop: 10, fontSize: 15, ...fonts.semiBold, color: colors.text }, tnum]}>
+              {user?.phoneNumber ?? 'Signed in'}
+            </Text>
+            <Text style={{ marginTop: 2, fontSize: 12, color: colors.textMuted }}>chitti · v0.1</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setShowSettings(false); toggleTheme(); }} style={styles.settingsRow}>
+            <Text style={styles.settingsRowText}>{isDark ? 'Switch to light mode' : 'Switch to dark mode'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSignOut} style={[styles.settingsRow, { borderTopWidth: 1, borderTopColor: colors.border }]}>
+            <Text style={[styles.settingsRowText, { color: colors.danger }]}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
   );
 
   /* ───────────────────────── Empty state ───────────────────────── */
@@ -79,6 +123,7 @@ export default function HomeScreen() {
       <View style={styles.root}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         {Header}
+        {SettingsSheet}
         <View style={styles.emptyBlock}>
           <View style={styles.emptyStamp}>
             <Text style={styles.emptyStampGlyph}>₹</Text>
@@ -144,6 +189,7 @@ export default function HomeScreen() {
         <Text style={styles.fabPlus}>+</Text>
         <Text style={styles.fabText}>New chit</Text>
       </TouchableOpacity>
+      {SettingsSheet}
     </View>
   );
 }
@@ -207,6 +253,35 @@ function makeStyles(c: ThemeColors) {
     },
     fabPlus: { fontSize: 22, ...fonts.semiBold, color: c.bg, lineHeight: 22 },
     fabText: { fontSize: 15, ...fonts.semiBold, color: c.bg },
+
+    /* Settings sheet */
+    settingsSheet: {
+      position: 'absolute',
+      right: 20,
+      top: 100,
+      width: 240,
+      backgroundColor: c.card,
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: c.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.25,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 12,
+    },
+    settingsAvatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    settingsRow: { paddingVertical: 14 },
+    settingsRowText: { fontSize: 14, ...fonts.semiBold, color: c.text },
 
     /* Empty state */
     emptyBlock: {
