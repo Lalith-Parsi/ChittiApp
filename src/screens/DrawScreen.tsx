@@ -13,6 +13,7 @@ import {
   getMaxDiscount,
 } from '../utils/chitti';
 import { RootStackParamList } from '../navigation/types';
+import { useToast } from '../lib/ToastContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
 import {
@@ -35,6 +36,7 @@ export default function DrawScreen() {
   const { groupId, cycleId } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const toast = useToast();
 
   const [group, setGroup] = useState<ChittiGroup | null>(null);
   const [mode, setMode] = useState<'lottery' | 'manual'>('lottery');
@@ -132,6 +134,7 @@ export default function DrawScreen() {
       );
       await upsertGroup({ ...group, members: updatedMembers, cycles: updatedCycles });
       setConfirming(false);
+      toast.success(`Cycle ${cycle.cycleNumber} recorded`, `${winner.name} · ₹${fmtINR(finalPrize)}`);
       navigation.replace('CycleReceipt', { groupId, cycleId });
     } catch (e: unknown) {
       Alert.alert('Could not record', e instanceof Error ? e.message : 'Unknown error');

@@ -15,6 +15,7 @@ import {
   ConfirmationResult,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, tnum } from '../lib/theme';
 
@@ -52,6 +53,7 @@ function Wordmark({ size = 48, color, dotColor }: { size?: number; color?: strin
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { enterDemoMode } = useAuth();
 
   const [step, setStep]                 = useState<Step>('phone');
   const [phoneDisplay, setPhoneDisplay] = useState('');
@@ -174,6 +176,22 @@ export default function LoginScreen() {
             <Text style={styles.legal}>
               By continuing you agree to our <Text style={styles.legalLink}>Terms</Text> and{' '}
               <Text style={styles.legalLink}>Privacy Policy</Text>. We'll send a one-time code to verify it's you.
+            </Text>
+
+            <View style={styles.demoDivider}>
+              <View style={styles.demoLine} />
+              <Text style={styles.demoOrText}>or</Text>
+              <View style={styles.demoLine} />
+            </View>
+            <TouchableOpacity
+              style={styles.demoBtn}
+              onPress={enterDemoMode}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.demoBtnText}>Preview without signing in  →</Text>
+            </TouchableOpacity>
+            <Text style={styles.demoHint}>
+              Loads 3 sample chits so you can poke around. Nothing is saved.
             </Text>
           </View>
 
@@ -375,6 +393,29 @@ function makeStyles(c: ThemeColors) {
       textAlign: 'center',
     },
     legalLink: { color: c.textSub, textDecorationLine: 'underline' },
+
+    /* Demo affordance */
+    demoDivider: {
+      marginTop: 20, marginBottom: 12,
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+    },
+    demoLine: { flex: 1, height: 1, backgroundColor: c.border },
+    demoOrText: { fontSize: 12, ...fonts.medium, color: c.textMuted },
+    demoBtn: {
+      paddingVertical: 14,
+      borderRadius: 14,
+      borderWidth: 1, borderColor: c.accent,
+      backgroundColor: c.accentLight,
+      alignItems: 'center',
+    },
+    demoBtnText: { fontSize: 15, ...fonts.semiBold, color: c.accent },
+    demoHint: {
+      marginTop: 8,
+      fontSize: 11.5,
+      ...fonts.regular,
+      color: c.textMuted,
+      textAlign: 'center',
+    },
 
     /* OTP step */
     otpRoot: {

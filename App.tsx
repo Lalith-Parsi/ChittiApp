@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { ThemeProvider } from './src/lib/ThemeContext';
 import { AuthProvider } from './src/lib/AuthContext';
+import { ToastProvider } from './src/lib/ToastContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -28,7 +29,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppNavigator />
+        <ToastProvider>
+          <AppNavigator />
+        </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

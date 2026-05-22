@@ -9,6 +9,7 @@ import { ChittiGroup } from '../types';
 import { getGroups, deleteGroup } from '../storage';
 import GroupCard from '../components/GroupCard';
 import { RootStackParamList } from '../navigation/types';
+import { useToast } from '../lib/ToastContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
 
@@ -40,15 +41,32 @@ export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { user } = useAuth();
+  const { user, isDemo, leaveDemoMode } = useAuth();
+  const toast = useToast();
 
   const [groups, setGroups] = useState<ChittiGroup[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [shownDemoToast, setShownDemoToast] = useState(false);
 
   useFocusEffect(useCallback(() => { getGroups().then(setGroups); }, []));
 
+  // Show "Welcome to demo mode" once per session.
+  React.useEffect(() => {
+    if (isDemo && !shownDemoToast) {
+      setShownDemoToast(true);
+      toast.info('Demo mode', '3 sample chits loaded — nothing here is saved.');
+    }
+  }, [isDemo, shownDemoToast, toast]);
+
   const handleSignOut = () => {
     setShowSettings(false);
+    if (isDemo) {
+      Alert.alert('Exit demo?', 'Sample chits will be cleared.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Exit demo', style: 'destructive', onPress: () => leaveDemoMode() },
+      ]);
+      return;
+    }
     Alert.alert('Sign out?', 'You can sign back in with the same phone number.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => signOut(auth).catch(() => {}) },
@@ -70,7 +88,10 @@ export default function HomeScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => deleteGroup(group.id).then(() => setGroups(prev => prev.filter(g => g.id !== group.id))),
+          onPress: () => deleteGroup(group.id).then(() => {
+            setGroups(prev => prev.filter(g => g.id !== group.id));
+            toast.success('Chit deleted');
+          }),
         },
       ],
     );
@@ -78,17 +99,28 @@ export default function HomeScreen() {
 
   /* ───────────────────────── Header ───────────────────────── */
   const Header = (
-    <View style={styles.header}>
-      <Wordmark size={26} color={colors.text} dotColor={colors.accent} />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn} hitSlop={8}>
-          <Text style={styles.themeBtnText}>{isDark ? '☀' : '☾'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.themeBtn} hitSlop={8}>
-          <Text style={styles.themeBtnText}>···</Text>
-        </TouchableOpacity>
+    <>
+      <View style={styles.header}>
+        <Wordmark size={26} color={colors.text} dotColor={colors.accent} />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn} hitSlop={8}>
+            <Text style={styles.themeBtnText}>{isDark ? '☀' : '☾'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.themeBtn} hitSlop={8}>
+            <Text style={styles.themeBtnText}>···</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+      {isDemo && (
+        <View style={styles.demoBanner}>
+          <View style={styles.demoDot} />
+          <Text style={styles.demoBannerText}>Demo mode · nothing is saved</Text>
+          <TouchableOpacity onPress={() => leaveDemoMode()} hitSlop={6}>
+            <Text style={styles.demoBannerExit}>Exit</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
   );
 
   const SettingsSheet = (
@@ -253,6 +285,20 @@ function makeStyles(c: ThemeColors) {
     },
     fabPlus: { fontSize: 22, ...fonts.semiBold, color: c.bg, lineHeight: 22 },
     fabText: { fontSize: 15, ...fonts.semiBold, color: c.bg },
+
+    /* Demo banner */
+    demoBanner: {
+      marginHorizontal: 20,
+      marginBottom: 6,
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: c.accentLight,
+      borderWidth: 1, borderColor: c.accent,
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+    },
+    demoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent },
+    demoBannerText: { flex: 1, fontSize: 12.5, ...fonts.semiBold, color: c.accent },
+    demoBannerExit: { fontSize: 12.5, ...fonts.semiBold, color: c.accent, textDecorationLine: 'underline' },
 
     /* Settings sheet */
     settingsSheet: {

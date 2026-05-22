@@ -19,6 +19,7 @@ import { v4 as uuid } from 'uuid';
 import { ChittiGroup, DrawType } from '../types';
 import { upsertGroup, getGroupById } from '../storage';
 import { RootStackParamList } from '../navigation/types';
+import { useToast } from '../lib/ToastContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
 import { FieldLabel, NavHeader, PrimaryButton, Segmented } from '../components/chitti-ui';
@@ -35,6 +36,7 @@ export default function CreateGroupScreen() {
   const editId = route.params?.groupId;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const toast = useToast();
 
   const now = new Date();
   const [name, setName] = useState('');
@@ -98,6 +100,7 @@ export default function CreateGroupScreen() {
             startYear,
           });
         }
+        toast.success('Saved');
         navigation.goBack();
       } else {
         const newGroup: ChittiGroup = {
@@ -120,6 +123,7 @@ export default function CreateGroupScreen() {
           isActive: true,
         };
         await upsertGroup(newGroup);
+        toast.success('Chit created', 'Add members to start the first cycle.');
         navigation.replace('GroupDetail', { groupId: newGroup.id });
       }
     } catch (e: unknown) {

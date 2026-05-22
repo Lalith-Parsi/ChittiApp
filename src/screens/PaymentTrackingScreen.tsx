@@ -6,6 +6,7 @@ import { ChittiGroup, Member, Payment, Cycle } from '../types';
 import { getGroupById, upsertGroup } from '../storage';
 import { calculateDividend, getChitValue, getCycleMonth, getForemanCommission, getPaidCount } from '../utils/chitti';
 import { RootStackParamList } from '../navigation/types';
+import { useToast } from '../lib/ToastContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
 import { Avatar, Kicker, MemberRow, NavHeader, Pill, PrimaryButton } from '../components/chitti-ui';
@@ -24,6 +25,7 @@ export default function PaymentTrackingScreen() {
   const { groupId, cycleId } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const toast = useToast();
 
   const [group, setGroup] = useState<ChittiGroup | null>(null);
   const [editing, setEditing] = useState<Member | null>(null);
@@ -58,6 +60,7 @@ export default function PaymentTrackingScreen() {
   };
 
   const markPaid = async (memberId: string, mode: Mode, note: string) => {
+    const member = group.members.find(m => m.id === memberId);
     await updateCycle(c => ({
       ...c,
       payments: c.payments.map(p =>
@@ -67,6 +70,7 @@ export default function PaymentTrackingScreen() {
       ),
     }));
     setEditing(null);
+    if (member) toast.success(`${member.name} · marked paid`, `₹${fmtINR(due)} · ${mode.toUpperCase()}`);
   };
 
   const unmark = async (memberId: string) => {

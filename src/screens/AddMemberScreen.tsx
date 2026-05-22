@@ -21,6 +21,7 @@ import { saveMemberToken } from '../lib/firestore';
 import { auth } from '../lib/firebase';
 import { initializeCycles, syncCyclePayments } from '../utils/chitti';
 import { RootStackParamList } from '../navigation/types';
+import { useToast } from '../lib/ToastContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, tnum } from '../lib/theme';
 import { Kicker, NavHeader, PrimaryButton, Segmented } from '../components/chitti-ui';
@@ -42,6 +43,7 @@ export default function AddMemberScreen() {
   const { groupId } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const toast = useToast();
 
   const [path, setPath] = useState<Path>('manual');
   const [phoneDisplay, setPhoneDisplay] = useState('');
@@ -89,6 +91,7 @@ export default function AddMemberScreen() {
       setRecentlyAdded(newMember);
       setPhoneDisplay('');
       setName('');
+      toast.success(`Added ${newMember.name}`, 'They\'ll see this chit when they sign in.');
     } catch (e: unknown) {
       Alert.alert('Could not add', e instanceof Error ? e.message : 'Unknown error');
     } finally {
