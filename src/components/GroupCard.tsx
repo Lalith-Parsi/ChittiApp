@@ -1,93 +1,122 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChittiGroup } from '../types';
-import { getCurrentCycle, getCompletedCycles, getCycleMonth } from '../utils/chitti';
-import { Ionicons } from '@expo/vector-icons';
+import { getCompletedCycles, getCurrentCycle, getCycleMonth } from '../utils/chitti';
 import { useTheme } from '../lib/ThemeContext';
-import { ThemeColors, fonts } from '../lib/theme';
-
-function ordinal(n: number) {
-  const s = ['th','st','nd','rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
+import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
 
 interface Props {
   group: ChittiGroup;
+  /** Role of the signed-in user in this group. Today every group is single-user-owned
+   *  so this is always `foreman`; Phase 2 introduces real cross-account roles. */
+  role?: 'foreman' | 'member';
   onPress: () => void;
   onDelete?: () => void;
 }
 
-export default function GroupCard({ group, onPress, onDelete }: Props) {
+/**
+ * Cycle progress as discrete dots. A chit is a sequence of monthly events,
+ * not a continuous percentage — render it that way.
+ */
+function CycleDots({ cycle, total, color, dimColor, currentColor }: {
+  cycle: number;
+  total: number;
+  color: string;
+  dimColor: string;
+  currentColor: string;
+}) {
+  const max = Math.min(total, 24);
+  const scale = total / max;
+  const filledCount = Math.round(cycle / scale);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+      {Array.from({ length: max }).map((_, i) => {
+        const isFilled = i < filledCount;
+        const isCurrent = i === filledCount - 1;
+        return (
+          <View
+            key={i}
+            style={{
+              width: isCurrent ? 10 : 5,
+              height: 5,
+              borderRadius: 3,
+              backgroundColor: isFilled ? (isCurrent ? currentColor : color) : dimColor,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+export default function GroupCard({ group, role = 'foreman', onPress }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const currentCycle   = getCurrentCycle(group);
-  const completedCount = getCompletedCycles(group).length;
-  const totalCollected = completedCount * group.amount * group.members.length;
-  const pendingCount   = currentCycle ? currentCycle.payments.filter(p => !p.paid).length : 0;
-  const progress       = group.durationMonths > 0 ? completedCount / group.durationMonths : 0;
-  const isArchived     = group.isActive === false;
+  const current = getCurrentCycle(group);
+  const completed = getCompletedCycles(group).length;
+  const cycleNum = current?.cycleNumber ?? (completed || 1);
+  const chitValue = group.amount * group.totalMembers;
+  const isForeman = role === 'foreman';
+
+  const nextDueLabel = current
+    ? `by ${getCycleMonth(group, cycleNum)}`
+    : completed >= group.durationMonths ? 'Completed' : 'Not yet started';
 
   return (
-    <TouchableOpacity style={[styles.card, isArchived && styles.cardArchived]} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.header}>
-        <View style={[styles.iconBox, isArchived && styles.iconBoxArchived]}>
-          <Ionicons name={isArchived ? 'archive' : 'people'} size={22} color="#fff" />
-        </View>
-        <View style={styles.info}>
-          <Text style={styles.name}>{group.name}</Text>
-          {group.description
-            ? <Text style={styles.desc} numberOfLines={1}>{group.description}</Text>
-            : <Text style={styles.sub}>{group.members.length} members · ₹{group.amount.toLocaleString()}/month</Text>
-          }
-        </View>
-        <View style={styles.headerRight}>
-          {onDelete && (
-            <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="trash-outline" size={16} color={colors.danger} />
-            </TouchableOpacity>
-          )}
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </View>
-      </View>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+      {isForeman && <View style={styles.foremanStripe} />}
 
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
-      </View>
-
-      <View style={styles.footer}>
-        <View style={styles.stat}>
-          <Text style={styles.statVal}>₹{totalCollected.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>Collected</Text>
+      {/* Top row — name + role badge */}
+      <View style={styles.topRow}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.name} numberOfLines={1}>{group.name}</Text>
+          <View style={styles.metaRow}>
+            <Text style={[styles.metaRupee, tnum]}>₹{fmtINR(chitValue)}</Text>
+            <Text style={styles.metaText}> pot </Text>
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.metaText}> {group.members.length} members</Text>
+          </View>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.stat}>
-          <Text style={styles.statVal}>{completedCount}/{group.durationMonths}</Text>
-          <Text style={styles.statLabel}>Cycles done</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.stat}>
-          {pendingCount > 0
-            ? <Text style={[styles.statVal, { color: colors.warning }]}>{pendingCount}</Text>
-            : currentCycle
-              ? <Text style={[styles.statVal, { color: colors.success }]}>✓</Text>
-              : <Text style={[styles.statVal, { color: colors.primaryText }]}>{ordinal(group.paymentDay ?? 1)}</Text>
-          }
-          <Text style={styles.statLabel}>
-            {pendingCount > 0 ? 'Pending' : currentCycle ? 'All paid' : 'Pay day'}
+        <View style={[styles.roleBadge, isForeman ? styles.roleBadgeForeman : styles.roleBadgeMember]}>
+          <Text style={[styles.roleBadgeText, isForeman ? styles.roleBadgeForemanText : styles.roleBadgeMemberText]}>
+            {isForeman ? "You're the foreman" : 'Member'}
           </Text>
         </View>
       </View>
 
-      {currentCycle && (
-        <View style={styles.cycleBadge}>
-          <Ionicons name="time-outline" size={11} color={colors.primaryText} />
-          <Text style={styles.cycleText}>
-            Cycle {currentCycle.cycleNumber} · {getCycleMonth(group, currentCycle.cycleNumber)}
-          </Text>
+      {/* Mid row — next due */}
+      <View style={styles.midRow}>
+        <View>
+          <Text style={styles.kicker}>YOUR NEXT DUE</Text>
+          <View style={styles.midAmountRow}>
+            <Text style={[styles.midAmount, tnum]}>₹{fmtINR(group.amount)}</Text>
+            <Text style={styles.midBy}>{nextDueLabel}</Text>
+          </View>
         </View>
-      )}
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Bottom row — cycle progress */}
+      <View style={styles.bottomRow}>
+        <View style={{ gap: 6, flex: 1, minWidth: 0 }}>
+          <Text style={styles.cycleLabel}>
+            Cycle <Text style={tnum}>{cycleNum}</Text> of <Text style={tnum}>{group.durationMonths}</Text>
+          </Text>
+          <CycleDots
+            cycle={cycleNum}
+            total={group.durationMonths}
+            color={`${colors.primary}88`}
+            currentColor={colors.primary}
+            dimColor={colors.divider2}
+          />
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.nextDrawLabel}>Next draw</Text>
+          <Text style={styles.nextDrawVal}>{getCycleMonth(group, cycleNum)}</Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -95,37 +124,44 @@ export default function GroupCard({ group, onPress, onDelete }: Props) {
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
     card: {
-      backgroundColor: c.card, borderRadius: 16, padding: 16, marginBottom: 14,
-      shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 }, elevation: 3,
+      position: 'relative',
+      backgroundColor: c.card,
+      borderRadius: 16,
+      paddingTop: 16, paddingBottom: 14, paddingLeft: 18, paddingRight: 16,
+      borderWidth: 1, borderColor: c.border,
+      overflow: 'hidden',
     },
-    cardArchived: { opacity: 0.6 },
-    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    iconBox: {
-      width: 44, height: 44, borderRadius: 12, backgroundColor: c.primary,
-      alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    foremanStripe: {
+      position: 'absolute',
+      left: 0, top: 0, bottom: 0, width: 3,
+      backgroundColor: c.primary,
     },
-    iconBoxArchived: { backgroundColor: c.textMuted },
-    info: { flex: 1 },
-    name: { fontSize: 16, ...fonts.bold, color: c.text },
-    sub:  { fontSize: 13, ...fonts.regular, color: c.textSub, marginTop: 2 },
-    desc: { fontSize: 13, ...fonts.regular, color: c.textMuted, marginTop: 2, fontStyle: 'italic' },
-    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    progressTrack: { height: 4, backgroundColor: c.primaryLight, borderRadius: 2, marginBottom: 12, overflow: 'hidden' },
-    progressFill:  { height: 4, backgroundColor: c.primary, borderRadius: 2 },
-    footer: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: c.statBg, borderRadius: 10, padding: 10,
-    },
-    stat: { flex: 1, alignItems: 'center' },
-    statVal:   { fontSize: 14, ...fonts.bold, color: c.text },
-    statLabel: { fontSize: 11, ...fonts.regular, color: c.textMuted, marginTop: 2 },
-    divider:   { width: 1, height: 28, backgroundColor: c.border },
-    cycleBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      marginTop: 10, backgroundColor: c.primaryLight, borderRadius: 8,
-      paddingVertical: 5, paddingHorizontal: 10, alignSelf: 'flex-start',
-    },
-    cycleText: { fontSize: 12, ...fonts.semiBold, color: c.primaryText },
+
+    topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+    name:  { fontSize: 16, ...fonts.semiBold, color: c.text, letterSpacing: -0.2 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3, flexWrap: 'wrap' },
+    metaRupee: { fontSize: 12.5, ...fonts.medium, color: c.textMuted },
+    metaText:  { fontSize: 12.5, ...fonts.regular, color: c.textMuted },
+    metaDot:   { fontSize: 12.5, color: c.divider2, marginHorizontal: 4 },
+
+    roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+    roleBadgeForeman: { backgroundColor: c.primaryLight },
+    roleBadgeMember:  { backgroundColor: c.card },
+    roleBadgeText: { fontSize: 11.5, ...fonts.semiBold, letterSpacing: 0.1 },
+    roleBadgeForemanText: { color: c.primary },
+    roleBadgeMemberText:  { color: c.textSub },
+
+    midRow: { marginTop: 14 },
+    kicker: { fontSize: 10.5, ...fonts.semiBold, color: c.textMuted, letterSpacing: 0.8 },
+    midAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 4 },
+    midAmount: { fontSize: 26, ...fonts.semiBold, color: c.text, letterSpacing: -0.4 },
+    midBy:     { fontSize: 13, ...fonts.regular, color: c.textSub },
+
+    divider: { height: 1, backgroundColor: c.border, marginTop: 14, marginBottom: 12 },
+
+    bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+    cycleLabel: { fontSize: 12, ...fonts.medium, color: c.textSub },
+    nextDrawLabel: { fontSize: 12, ...fonts.regular, color: c.textSub },
+    nextDrawVal:   { fontSize: 12, ...fonts.semiBold, color: c.text, marginTop: 2 },
   });
 }

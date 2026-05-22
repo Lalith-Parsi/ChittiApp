@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ChittiApp — Design</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Newsreader:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="tokens.css" />
+
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      font-family: "Inter", system-ui, sans-serif;
+      background: #f0eee9;
+      color: #1A1714;
+    }
+
+    /* Direction strip — sits above the canvas, doesn't fight it. */
+    .dir-strip {
+      padding: 28px 32px 8px;
+      max-width: 920px;
+    }
+    .dir-strip h1 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: 36px;
+      letter-spacing: -0.015em;
+      margin: 0 0 6px;
+      color: #1A1714;
+    }
+    .dir-strip h1 .dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      background: #C9A24B;
+      border-radius: 50%;
+      margin: 0 4px 6px 2px;
+      vertical-align: middle;
+    }
+    .dir-strip p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.55;
+      color: #4A4239;
+      max-width: 720px;
+    }
+    .dir-strip .kicker {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #7A7062;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .dir-strip .next-steps {
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e7e1d2;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #4A4239;
+    }
+    .dir-strip .next-steps b {
+      color: #1A1714;
+      font-weight: 600;
+    }
+    .dir-strip .next-steps .check {
+      color: #0F5132;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dir-strip">
+    <div class="kicker">ChittiApp · design exploration</div>
+    <h1>Ledger green<span class="dot"></span>on paper warmth.</h1>
+    <p>
+      Calm Indian-fintech voice — plainspoken labels, settled type, two surfaces (warm paper /
+      warm ink). Inter throughout; Instrument Serif as a sparing display face on receipts and
+      section heads. The brass dot is the seal that will return on the cycle receipt — the
+      product's "math verified" moment. Designing one screen at a time at 390×844, light + dark.
+    </p>
+
+    <div class="next-steps">
+      <div><span class="check">✓</span><b>All 10 screens shipped:</b> 01 Phone entry · 02 OTP · 03 Home · 04 Create chit · 05 Group/Foreman · 06 Group/Member · 07 Payment grid · 08 Conduct draw · 09 Cycle receipt (signature) · 10 Add member. Each is presented in light + dark with realistic Indian content and at least one alternate state.</div>
+      <div style="margin-top:6px"><span class="check">✓</span><b>Signature moment</b> lives on screen 09 — brass-disc seal + typeset equation. Spec for it is at the bottom of the canvas, under "Design tokens · components · signature".</div>
+      <div style="margin-top:6px"><span class="check" style="color:#7A7062">·</span><b>Next:</b> drag any artboard to reorder, click expand to focus-mode it (←/→/Esc), or react with comments and I'll iterate. The most likely follow-ups: tightening the conduct-draw flow, the receipt's brass seal scale/tilt, the Home card density.</div>
+    </div>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Design canvas + shared atoms + screens -->
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="lib/chitti-ui.jsx"></script>
+  <script type="text/babel" src="screens/01-phone-entry.jsx"></script>
+  <script type="text/babel" src="screens/02-otp.jsx"></script>
+  <script type="text/babel" src="screens/03-home.jsx"></script>
+  <script type="text/babel" src="screens/04-create-chit.jsx"></script>
+  <script type="text/babel" src="screens/05-06-group.jsx"></script>
+  <script type="text/babel" src="screens/07-payment-grid.jsx"></script>
+  <script type="text/babel" src="screens/08-conduct-draw.jsx"></script>
+  <script type="text/babel" src="screens/09-receipt.jsx"></script>
+  <script type="text/babel" src="screens/10-add-member.jsx"></script>
+  <script type="text/babel" src="screens/99-system.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const { createRoot } = ReactDOM;
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "numFont": "Geist Mono"
+    }/*EDITMODE-END*/;
+
+    const NUM_FONT_OPTIONS = [
+      { label: "IBM Plex Mono",   value: "IBM Plex Mono",   stack: '"IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace' },
+      { label: "Geist Mono",      value: "Geist Mono",      stack: '"Geist Mono", "IBM Plex Mono", ui-monospace, monospace' },
+      { label: "JetBrains Mono",  value: "JetBrains Mono",  stack: '"JetBrains Mono", ui-monospace, monospace' },
+      { label: "Newsreader (serif)", value: "Newsreader",   stack: '"Newsreader", "Iowan Old Style", Georgia, serif' },
+      { label: "Inter (current)", value: "Inter",           stack: '"Inter", ui-sans-serif, system-ui, sans-serif' },
+    ];
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const stack = (NUM_FONT_OPTIONS.find(o => o.value === t.numFont) || NUM_FONT_OPTIONS[0]).stack;
+
+      return (
+        <div style={{ ['--font-num']: stack }}>
+          <DesignCanvas>
+
+          <DCSection id="s01" title="01 · Phone entry" subtitle="Auth — first impression. Inter UI · Instrument Serif on wordmark.">
+            <DCArtboard id="01a" label="Light · default (empty)" width={390} height={844}>
+              <PhoneEntryScreen theme="light" state="default" />
+            </DCArtboard>
+            <DCArtboard id="01b" label="Dark · default (empty)" width={390} height={844}>
+              <PhoneEntryScreen theme="dark" state="default" />
+            </DCArtboard>
+            <DCArtboard id="01c" label="Light · invalid number" width={390} height={844}>
+              <PhoneEntryScreen theme="light" state="invalid" />
+            </DCArtboard>
+            <DCArtboard id="01d" label="Light · sending OTP (loading)" width={390} height={844}>
+              <PhoneEntryScreen theme="light" state="loading" />
+            </DCArtboard>
+            <DCArtboard id="01e" label="Dark · rate-limited" width={390} height={844}>
+              <PhoneEntryScreen theme="dark" state="ratelimited" />
+            </DCArtboard>
+            <DCArtboard id="01f" label="Light · after 30s (Call me instead)" width={390} height={844}>
+              <PhoneEntryScreen theme="light" state="aftertimeout" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s02" title="02 · OTP entry" subtitle="6-digit code · auto-advance · countdown · wrong/expired/success">
+            <DCArtboard id="02a" label="Light · typing (3/6)" width={390} height={844}>
+              <OtpEntryScreen theme="light" state="typing" />
+            </DCArtboard>
+            <DCArtboard id="02b" label="Dark · typing (3/6)" width={390} height={844}>
+              <OtpEntryScreen theme="dark" state="typing" />
+            </DCArtboard>
+            <DCArtboard id="02c" label="Light · verifying (auto-submit)" width={390} height={844}>
+              <OtpEntryScreen theme="light" state="submitting" />
+            </DCArtboard>
+            <DCArtboard id="02d" label="Light · wrong code" width={390} height={844}>
+              <OtpEntryScreen theme="light" state="wrong" />
+            </DCArtboard>
+            <DCArtboard id="02e" label="Dark · code expired" width={390} height={844}>
+              <OtpEntryScreen theme="dark" state="expired" />
+            </DCArtboard>
+            <DCArtboard id="02f" label="Light · verified ✓" width={390} height={844}>
+              <OtpEntryScreen theme="light" state="success" />
+            </DCArtboard>
+            <DCArtboard id="02g" label="Light · after timer (Resend / Call me)" width={390} height={844}>
+              <OtpEntryScreen theme="light" state="aftertimeout" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s03" title="03 · Home · My Chits" subtitle="The screen they open dozens of times a month. Foreman + member in the same list.">
+            <DCArtboard id="03a" label="Light · populated (3 chits)" width={390} height={844}>
+              <HomeScreen theme="light" state="populated" />
+            </DCArtboard>
+            <DCArtboard id="03b" label="Dark · populated" width={390} height={844}>
+              <HomeScreen theme="dark" state="populated" />
+            </DCArtboard>
+            <DCArtboard id="03c" label="Light · empty (first run)" width={390} height={844}>
+              <HomeScreen theme="light" state="empty" />
+            </DCArtboard>
+            <DCArtboard id="03d" label="Dark · empty" width={390} height={844}>
+              <HomeScreen theme="dark" state="empty" />
+            </DCArtboard>
+            <DCArtboard id="03e" label="Light · offline (cached read)" width={390} height={844}>
+              <HomeScreen theme="light" state="offline" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s04" title="04 · Create chit" subtitle="Education-in-the-form. Live derived rupee values. Act caps surfaced on sliders.">
+            <DCArtboard id="04a" label="Light · filling (live values)" width={390} height={844}>
+              <CreateChitScreen theme="light" state="filling" />
+            </DCArtboard>
+            <DCArtboard id="04b" label="Dark · filling" width={390} height={844}>
+              <CreateChitScreen theme="dark" state="filling" />
+            </DCArtboard>
+            <DCArtboard id="04c" label="Light · validation (commission > 5%)" width={390} height={844}>
+              <CreateChitScreen theme="light" state="invalid" />
+            </DCArtboard>
+            <DCArtboard id="04d" label="Light · confirming sheet" width={390} height={844}>
+              <CreateChitScreen theme="light" state="confirming" />
+            </DCArtboard>
+            <DCArtboard id="04e" label="Light · empty (first open)" width={390} height={844}>
+              <CreateChitScreen theme="light" state="empty" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s05" title="05 · Group detail · Foreman" subtitle="The hub for a chit the user is running. Mark payments. Conduct draw.">
+            <DCArtboard id="05a" label="Light · mid-cycle (12/20 paid)" width={390} height={844}>
+              <GroupForemanScreen theme="light" state="mid" />
+            </DCArtboard>
+            <DCArtboard id="05b" label="Dark · mid-cycle" width={390} height={844}>
+              <GroupForemanScreen theme="dark" state="mid" />
+            </DCArtboard>
+            <DCArtboard id="05c" label="Light · all paid · ready to draw" width={390} height={844}>
+              <GroupForemanScreen theme="light" state="all-paid" />
+            </DCArtboard>
+            <DCArtboard id="05d" label="Light · before first cycle" width={390} height={844}>
+              <GroupForemanScreen theme="light" state="premembers" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s06" title="06 · Group detail · Member" subtitle="Same numbers, different actions. Read-only ledger, your status front-and-centre.">
+            <DCArtboard id="06a" label="Light · unpaid this cycle" width={390} height={844}>
+              <GroupMemberScreen theme="light" state="unpaid" />
+            </DCArtboard>
+            <DCArtboard id="06b" label="Dark · unpaid" width={390} height={844}>
+              <GroupMemberScreen theme="dark" state="unpaid" />
+            </DCArtboard>
+            <DCArtboard id="06c" label="Light · paid this cycle" width={390} height={844}>
+              <GroupMemberScreen theme="light" state="paid" />
+            </DCArtboard>
+            <DCArtboard id="06d" label="Light · prized member (post-win)" width={390} height={844}>
+              <GroupMemberScreen theme="light" state="prized" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s07" title="07 · Payment grid" subtitle="The foreman's daily-driver. Every paid row carries an audit pin.">
+            <DCArtboard id="07a" label="Light · mid-cycle (some paid)" width={390} height={844}>
+              <PaymentGridScreen theme="light" state="some" />
+            </DCArtboard>
+            <DCArtboard id="07b" label="Dark · mid-cycle" width={390} height={844}>
+              <PaymentGridScreen theme="dark" state="some" />
+            </DCArtboard>
+            <DCArtboard id="07c" label="Light · all unpaid (cycle just opened)" width={390} height={844}>
+              <PaymentGridScreen theme="light" state="all-unpaid" />
+            </DCArtboard>
+            <DCArtboard id="07d" label="Light · all paid · draw enabled" width={390} height={844}>
+              <PaymentGridScreen theme="light" state="all-paid" />
+            </DCArtboard>
+            <DCArtboard id="07e" label="Light · marking payment (sheet)" width={390} height={844}>
+              <PaymentGridScreen theme="light" state="marking" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s08" title="08 · Conduct draw" subtitle="Lottery or manual entry. The conservation invariant prints LIVE.">
+            <DCArtboard id="08a" label="Lottery · idle (ready to roll)" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="lottery-idle" />
+            </DCArtboard>
+            <DCArtboard id="08b" label="Lottery · rolling animation" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="lottery-rolling" />
+            </DCArtboard>
+            <DCArtboard id="08c" label="Lottery · winner revealed" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="lottery-revealed" />
+            </DCArtboard>
+            <DCArtboard id="08d" label="Manual · valid entry (math balances)" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="manual-valid" />
+            </DCArtboard>
+            <DCArtboard id="08e" label="Manual · invalid (discount > cap)" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="manual-invalid" />
+            </DCArtboard>
+            <DCArtboard id="08f" label="Manual · empty" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="manual-empty" />
+            </DCArtboard>
+            <DCArtboard id="08g" label="Manual · confirm sheet" width={390} height={844}>
+              <ConductDrawScreen theme="light" state="manual-confirming" />
+            </DCArtboard>
+            <DCArtboard id="08h" label="Dark · lottery revealed" width={390} height={844}>
+              <ConductDrawScreen theme="dark" state="lottery-revealed" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s09" title="09 · Cycle receipt" subtitle="The signature screen. Banknote guilloché + brass seal. The math is the hero.">
+            <DCArtboard id="09a" label="Light · just conducted" width={390} height={844}>
+              <CycleReceiptScreen theme="light" state="fresh" />
+            </DCArtboard>
+            <DCArtboard id="09b" label="Dark · just conducted" width={390} height={844}>
+              <CycleReceiptScreen theme="dark" state="fresh" />
+            </DCArtboard>
+            <DCArtboard id="09c" label="Light · historical (re-opened)" width={390} height={844}>
+              <CycleReceiptScreen theme="light" state="historical" />
+            </DCArtboard>
+            <DCArtboard id="09d" label="Light · YOU won this cycle" width={390} height={844}>
+              <CycleReceiptScreen theme="light" state="you-won" />
+            </DCArtboard>
+            <DCArtboard id="09e" label="Light · share sheet open" width={390} height={844}>
+              <CycleReceiptScreen theme="light" state="share" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s10" title="10 · Add member / invite" subtitle="Two paths shown together. Already-a-member stays visible, just disabled.">
+            <DCArtboard id="10a" label="Light · contacts loaded" width={390} height={844}>
+              <AddMemberScreen theme="light" state="loaded" />
+            </DCArtboard>
+            <DCArtboard id="10b" label="Dark · contacts loaded" width={390} height={844}>
+              <AddMemberScreen theme="dark" state="loaded" />
+            </DCArtboard>
+            <DCArtboard id="10c" label="Light · 3 selected" width={390} height={844}>
+              <AddMemberScreen theme="light" state="selecting" />
+            </DCArtboard>
+            <DCArtboard id="10d" label="Light · contacts loading (skeleton)" width={390} height={844}>
+              <AddMemberScreen theme="light" state="loading" />
+            </DCArtboard>
+            <DCArtboard id="10e" label="Light · permission denied" width={390} height={844}>
+              <AddMemberScreen theme="light" state="permission-denied" />
+            </DCArtboard>
+            <DCArtboard id="10f" label="Light · manual · added confirmation" width={390} height={844}>
+              <AddMemberScreen theme="light" state="added" />
+            </DCArtboard>
+            <DCArtboard id="10g" label="Light · manual · validation error" width={390} height={844}>
+              <AddMemberScreen theme="light" state="validation-error" />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="s99" title="Design system · tokens, components, signature" subtitle="Reference sheets. Wider artboards than the phone screens.">
+            <DCArtboard id="99a" label="Colors" width={760} height={920}>
+              <TokensColors />
+            </DCArtboard>
+            <DCArtboard id="99b" label="Type · spacing · radii · shadow" width={920} height={920}>
+              <TokensTypeAndSpacing />
+            </DCArtboard>
+            <DCArtboard id="99c" label="Component inventory" width={760} height={920}>
+              <ComponentInventory />
+            </DCArtboard>
+            <DCArtboard id="99d" label="Signature interaction · motion brief" width={920} height={920}>
+              <SignatureSpec />
+            </DCArtboard>
+          </DCSection>
+
+        </DesignCanvas>
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection label="Numbers" />
+            <TweakRadio
+              label="Number font"
+              value={t.numFont}
+              options={NUM_FONT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+              onChange={(v) => setTweak('numFont', v)}
+            />
+            <div style={{
+              fontFamily: stack,
+              fontVariantNumeric: "tabular-nums lining-nums",
+              fontFeatureSettings: '"tnum", "lnum"',
+              fontSize: 22,
+              letterSpacing: "0.01em",
+              padding: "10px 12px",
+              background: "rgba(0,0,0,.04)",
+              borderRadius: 10,
+              color: "#1A1714",
+              marginTop: 4,
+              textAlign: "center",
+            }}>
+              ₹1,00,000 · ₹3,750 · +91 98765 43210
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(0,0,0,.55)", lineHeight: 1.5, padding: "0 2px" }}>
+              Applies to all tabular numbers in the app. Display amounts on the receipt stay Instrument Serif.
+            </div>
+          </TweaksPanel>
+        </div>
+      );
+    }
+
+    createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+/* ChittiApp design tokens — Ledger green on paper warmth. */
+
+:root {
+  /* Type */
+  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Instrument Serif", "Iowan Old Style", "Apple Garamond", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-num: "IBM Plex Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Surfaces — light (paper) */
+  --paper-50:  #FAF7F0;   /* canvas */
+  --paper-100: #F2EDE2;   /* elevated card */
+  --paper-200: #E7E1D2;   /* hairline / divider */
+  --paper-300: #D7CFBC;   /* stronger divider */
+  --paper-400: #B6AC93;   /* muted icon */
+
+  /* Surfaces — dark (ink) */
+  --ink-50:  #ECE8DD;   /* high-contrast text on ink */
+  --ink-100: #C8C2B3;
+  --ink-200: #8B8676;
+  --ink-300: #4D4A41;
+  --ink-500: #232925;   /* dark elevated */
+  --ink-700: #1A2520;   /* dark card */
+  --ink-800: #131A16;
+  --ink-900: #0E1410;   /* dark canvas — warm near-black */
+
+  /* Brand */
+  --ledger-900: #093525;
+  --ledger-800: #0B4128;
+  --ledger-700: #0F5132;   /* primary, light mode */
+  --ledger-600: #1A6B45;
+  --ledger-500: #2A8A5F;   /* primary, dark mode */
+  --ledger-400: #4FAA7E;
+  --ledger-100: #DCEEE4;   /* paid pill bg */
+  --ledger-50:  #ECF5EF;
+
+  --brass-700: #8E6E27;
+  --brass-500: #C9A24B;   /* receipt accent */
+  --brass-300: #E7C77A;
+  --brass-100: #F5E7C2;
+
+  /* Semantic — muted on purpose */
+  --paid-bg-l:    #DCEEE4;
+  --paid-fg-l:    #0F5132;
+  --paid-bg-d:    #16352A;
+  --paid-fg-d:    #7CC79E;
+
+  --pending-bg-l: #F4E6C3;
+  --pending-fg-l: #6B4F11;
+  --pending-bg-d: #3A3018;
+  --pending-fg-d: #E5C57A;
+
+  --error-bg-l:   #F2DAD3;
+  --error-fg-l:   #8C3A26;
+  --error-bg-d:   #3A1D15;
+  --error-fg-d:   #E5A89A;
+
+  /* Foreground */
+  --fg-l-1: #1A1714;     /* primary text on paper */
+  --fg-l-2: #4A4239;     /* secondary text on paper */
+  --fg-l-3: #7A7062;     /* tertiary */
+  --fg-d-1: #ECE8DD;
+  --fg-d-2: #B5AE9F;
+  --fg-d-3: #807767;
+
+  /* Radii — calm, not pillowy */
+  --r-1: 6px;
+  --r-2: 10px;
+  --r-3: 14px;
+  --r-4: 20px;
+  --r-pill: 999px;
+
+  /* Spacing scale (4-base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* Shadows — used sparingly */
+  --shadow-card-l: 0 1px 0 rgba(28,22,12,.04), 0 0 0 1px rgba(28,22,12,.05);
+  --shadow-card-d: 0 1px 0 rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05);
+  --shadow-pop-l:  0 18px 40px -10px rgba(28,22,12,.18), 0 1px 0 rgba(28,22,12,.06);
+  --shadow-pop-d:  0 18px 40px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06);
+}
+
+/* Per-screen theme helpers. .ca-light / .ca-dark live on the screen root. */
+.ca-light {
+  --bg:        var(--paper-50);
+  --bg-2:      var(--paper-100);
+  --bg-3:      var(--paper-200);
+  --divider:   var(--paper-200);
+  --divider-2: var(--paper-300);
+  --muted-ic:  var(--paper-400);
+
+  --fg-1: var(--fg-l-1);
+  --fg-2: var(--fg-l-2);
+  --fg-3: var(--fg-l-3);
+
+  --primary:    var(--ledger-700);
+  --primary-fg: #FAF7F0;
+  --primary-hi: var(--ledger-600);
+
+  --paid-bg: var(--paid-bg-l);   --paid-fg: var(--paid-fg-l);
+  --pend-bg: var(--pending-bg-l); --pend-fg: var(--pending-fg-l);
+  --err-bg:  var(--error-bg-l);   --err-fg:  var(--error-fg-l);
+
+  --shadow-card: var(--shadow-card-l);
+  --shadow-pop:  var(--shadow-pop-l);
+
+  color: var(--fg-1);
+  background: var(--bg);
+}
+
+.ca-dark {
+  --bg:        var(--ink-900);
+  --bg-2:      var(--ink-700);
+  --bg-3:      var(--ink-500);
+  --divider:   #22302A;
+  --divider-2: #2B3C34;
+  --muted-ic:  var(--ink-300);
+
+  --fg-1: var(--fg-d-1);
+  --fg-2: var(--fg-d-2);
+  --fg-3: var(--fg-d-3);
+
+  --primary:    var(--ledger-500);
+  --primary-fg: #07140D;
+  --primary-hi: var(--ledger-400);
+
+  --paid-bg: var(--paid-bg-d);   --paid-fg: var(--paid-fg-d);
+  --pend-bg: var(--pending-bg-d); --pend-fg: var(--pending-fg-d);
+  --err-bg:  var(--error-bg-d);   --err-fg:  var(--error-fg-d);
+
+  --shadow-card: var(--shadow-card-d);
+  --shadow-pop:  var(--shadow-pop-d);
+
+  color: var(--fg-1);
+  background: var(--bg);
+}
+
+/* Shared atoms used across screens. */
+.ca-screen {
+  width: 390px;
+  height: 844px;
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "cv11";
+  position: relative;
+  overflow: hidden;
+}
+
+.ca-screen, .ca-screen * {
+  box-sizing: border-box;
+}
+
+.ca-tnum {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum", "lnum";
+}
+.ca-rupee {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum", "lnum";
+  letter-spacing: 0.01em;
+}
+
+/* .ca-display wins over .ca-tnum / .ca-rupee for big amounts — placed AFTER so
+   source-order specificity carries; equation hero numbers stay Instrument Serif. */
+.ca-display,
+.ca-display.ca-tnum,
+.ca-display.ca-rupee {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* iOS status bar (lightweight, no chunky bezel). */
+.ca-status {
+  height: 47px;
+  padding: 0 24px 0 28px;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 10px;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+}
+.ca-status-icons { display: flex; align-items: center; gap: 5px; }
+.ca-status svg { display: block; }
+
+/* Home indicator at bottom (iOS) */
+.ca-home-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--fg-1);
+  opacity: 0.85;
+}
+
+/* Buttons */
+.ca-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  border: 0;
+  border-radius: var(--r-3);
+  padding: 16px 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform .08s, background .12s, opacity .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.ca-btn:active { transform: translateY(1px); }
+
+.ca-btn-primary {
+  background: var(--primary);
+  color: var(--primary-fg);
+  width: 100%;
+  min-height: 56px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05) inset;
+}
+.ca-btn-primary[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ca-btn-ghost {
+  background: transparent;
+  color: var(--fg-2);
+  padding: 12px 14px;
+}
+.ca-btn-ghost:hover { background: var(--bg-2); }
+
+/* Inputs */
+.ca-input {
+  font: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--fg-1);
+  width: 100%;
+  padding: 0;
+}
+.ca-input::placeholder { color: var(--fg-3); }
+
+/* Field shell — a single hairline frame, ledger-feeling */
+.ca-field {
+  background: var(--bg-2);
+  border-radius: var(--r-3);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid transparent;
+  transition: border-color .15s, background .15s;
+}
+.ca-field:focus-within {
+  border-color: var(--primary);
+}
+.ca-field.is-error {
+  border-color: var(--err-fg);
+  background: color-mix(in oklab, var(--err-bg) 50%, var(--bg-2));
+}
+
+/* Pills */
+.ca-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.ca-pill-paid { background: var(--paid-bg); color: var(--paid-fg); }
+.ca-pill-pend { background: var(--pend-bg); color: var(--pend-fg); }
+.ca-pill-err  { background: var(--err-bg);  color: var(--err-fg);  }
+.ca-pill-ghost{ background: var(--bg-2);    color: var(--fg-2);    }
+
+/* Spinner */
+@keyframes ca-spin { to { transform: rotate(360deg); } }
+.ca-spin {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: ca-spin .7s linear infinite;
+  display: inline-block;
+}
+
+/* Subtle banknote-style guilloché — reserved for receipt screen */
+.ca-guilloche {
+  background-image:
+    repeating-linear-gradient(
+      32deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--brass-500) 14%, transparent) 5px 6px
+    ),
+    repeating-linear-gradient(
+      -32deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--brass-500) 10%, transparent) 5px 6px
+    );
+}

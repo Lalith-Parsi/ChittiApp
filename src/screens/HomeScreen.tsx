@@ -1,161 +1,244 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { ChittiGroup } from '../types';
 import { getGroups, deleteGroup } from '../storage';
 import GroupCard from '../components/GroupCard';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../lib/ThemeContext';
-import { ThemeColors, fonts } from '../lib/theme';
+import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+
+/** Small wordmark used in the home header (smaller variant of LoginScreen wordmark). */
+function Wordmark({ size, color, dotColor }: { size: number; color: string; dotColor: string }) {
+  return (
+    <View style={{ position: 'relative' }}>
+      <Text style={{ fontSize: size, ...fonts.bold, color, letterSpacing: -0.5, lineHeight: size * 1.05 }}>
+        chitti
+      </Text>
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.14,
+          height: size * 0.14,
+          borderRadius: size * 0.07,
+          backgroundColor: dotColor,
+          right: size * 0.24,
+          top: size * 0.1,
+        }}
+      />
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const [groups, setGroups]             = useState<ChittiGroup[]>([]);
-  const [query, setQuery]               = useState('');
-  const [showArchived, setShowArchived] = useState(false);
+  const [groups, setGroups] = useState<ChittiGroup[]>([]);
 
   useFocusEffect(useCallback(() => { getGroups().then(setGroups); }, []));
 
+  const active = groups.filter(g => g.isActive !== false);
+
+  /** Naïve "due this week" rollup — sums each active group's monthly subscription
+   *  as a placeholder. Phase 5 ships the real dividend-adjusted figure. */
+  const dueThisWeek = active.reduce((acc, g) => acc + g.amount, 0);
+
   const handleDelete = (group: ChittiGroup) => {
-    const ok = typeof window !== 'undefined'
-      ? window.confirm(`Delete "${group.name}"? This cannot be undone.`)
-      : true;
-    if (!ok) return;
-    deleteGroup(group.id).then(() => setGroups(prev => prev.filter(g => g.id !== group.id)));
+    Alert.alert(
+      'Delete chit?',
+      `"${group.name}" will be removed permanently. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteGroup(group.id).then(() => setGroups(prev => prev.filter(g => g.id !== group.id))),
+        },
+      ],
+    );
   };
 
-  const active   = groups.filter(g => g.isActive !== false);
-  const archived = groups.filter(g => g.isActive === false);
+  /* ───────────────────────── Header ───────────────────────── */
+  const Header = (
+    <View style={styles.header}>
+      <Wordmark size={26} color={colors.text} dotColor={colors.accent} />
+      <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn} hitSlop={8}>
+        <Text style={styles.themeBtnText}>{isDark ? '☀' : '☾'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  const applyQuery = (list: ChittiGroup[]) =>
-    query.trim() ? list.filter(g => g.name.toLowerCase().includes(query.toLowerCase().trim())) : list;
-
-  const visible       = applyQuery(showArchived ? archived : active);
-  const archivedCount = archived.length;
-
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Chitti Manager</Text>
-          <Text style={styles.subtitle}>
-            {active.length} active{archivedCount > 0 ? ` · ${archivedCount} archived` : ''}
+  /* ───────────────────────── Empty state ───────────────────────── */
+  if (active.length === 0) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        {Header}
+        <View style={styles.emptyBlock}>
+          <View style={styles.emptyStamp}>
+            <Text style={styles.emptyStampGlyph}>₹</Text>
+          </View>
+          <Text style={styles.emptyTitle}>No chits yet.</Text>
+          <Text style={styles.emptySub}>
+            Start one for your family or office — or wait for someone to add you with this number.
           </Text>
-        </View>
-        <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn}>
-          <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={22} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={16} color={colors.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search groups..."
-            value={query}
-            onChangeText={setQuery}
-            placeholderTextColor={colors.textHint}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')}>
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-        {archivedCount > 0 && (
           <TouchableOpacity
-            style={[styles.archiveBtn, showArchived && styles.archiveBtnActive]}
-            onPress={() => setShowArchived(v => !v)}
+            style={styles.emptyPrimaryBtn}
+            onPress={() => navigation.navigate('CreateGroup', {})}
+            activeOpacity={0.85}
           >
-            <Ionicons name="archive-outline" size={15} color={showArchived ? '#fff' : colors.primary} />
-            <Text style={[styles.archiveBtnText, showArchived && { color: '#fff' }]}>
-              {showArchived ? 'Active' : String(archivedCount)}
-            </Text>
+            <Text style={styles.emptyPrimaryBtnText}>Create your first chit</Text>
           </TouchableOpacity>
-        )}
-      </View>
-
-      {visible.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="people-outline" size={72} color={colors.border} />
-          <Text style={styles.emptyTitle}>
-            {query ? 'No groups found' : showArchived ? 'No archived groups' : 'No groups yet'}
-          </Text>
-          {!query && !showArchived && (
-            <Text style={styles.emptyText}>Tap + to create your first chitti group</Text>
-          )}
         </View>
-      ) : (
-        <FlatList
-          data={visible}
-          keyExtractor={g => g.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <GroupCard
-              group={item}
-              onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}
-              onDelete={() => handleDelete(item)}
-            />
-          )}
-        />
-      )}
+      </View>
+    );
+  }
 
-      {!showArchived && (
-        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateGroup', {})} activeOpacity={0.85}>
-          <Ionicons name="add" size={28} color="#fff" />
-        </TouchableOpacity>
-      )}
+  /* ───────────────────────── Populated state ───────────────────────── */
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      {Header}
+
+      <FlatList
+        data={active}
+        keyExtractor={g => g.id}
+        ListHeaderComponent={
+          <View>
+            <View style={styles.summaryBand}>
+              <Text style={styles.summaryKicker}>DUE THIS WEEK</Text>
+              <View style={styles.summaryAmountRow}>
+                <Text style={[styles.summaryAmount, tnum]}>₹{fmtINR(dueThisWeek)}</Text>
+                <Text style={styles.summaryAcross}>across {active.length} {active.length === 1 ? 'chit' : 'chits'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionLabel}>MY CHITS · <Text style={tnum}>{active.length}</Text></Text>
+            </View>
+          </View>
+        }
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        renderItem={({ item }) => (
+          <GroupCard
+            group={item}
+            role="foreman"
+            onPress={() => navigation.navigate('GroupDetail', { groupId: item.id })}
+            onDelete={() => handleDelete(item)}
+          />
+        )}
+      />
+
+      {/* FAB — labelled, not iconic-only */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreateGroup', {})}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabPlus}>+</Text>
+        <Text style={styles.fabText}>New chit</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
+    root: { flex: 1, backgroundColor: c.bg },
+
     header: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16,
-      backgroundColor: c.header, borderBottomWidth: 1, borderBottomColor: c.border,
+      paddingTop: 60,
+      paddingBottom: 12,
+      paddingHorizontal: 24,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: c.bg,
     },
-    title: { fontSize: 26, ...fonts.extraBold, color: c.text },
-    subtitle: { fontSize: 14, ...fonts.regular, color: c.textMuted, marginTop: 2 },
-    themeBtn: { padding: 6 },
-    searchRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingHorizontal: 16, paddingVertical: 10,
-      backgroundColor: c.header, borderBottomWidth: 1, borderBottomColor: c.border,
-    },
-    searchBox: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: c.inputBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
-    },
-    searchInput: { flex: 1, fontSize: 14, ...fonts.regular, color: c.text },
-    archiveBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: c.primaryLight, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
-    },
-    archiveBtnActive: { backgroundColor: c.primary },
-    archiveBtnText: { fontSize: 13, ...fonts.semiBold, color: c.primaryText },
-    list: { padding: 16, paddingBottom: 100 },
-    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-    emptyTitle: { fontSize: 20, ...fonts.bold, color: c.text, marginTop: 16 },
-    emptyText: { fontSize: 14, ...fonts.regular, color: c.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20 },
-    fab: {
-      position: 'absolute', bottom: 32, right: 24,
-      width: 60, height: 60, borderRadius: 30, backgroundColor: c.primary,
+    themeBtn: {
+      width: 36, height: 36, borderRadius: 18,
       alignItems: 'center', justifyContent: 'center',
-      shadowColor: c.primary, shadowOpacity: 0.4, shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 }, elevation: 8,
+      backgroundColor: c.card,
     },
+    themeBtnText: { fontSize: 16, color: c.textSub },
+
+    /* Summary band */
+    summaryBand: {
+      marginHorizontal: 20, marginTop: 8,
+      padding: 18,
+      borderRadius: 16,
+      backgroundColor: c.primaryLight,
+      borderWidth: 1, borderColor: c.primaryLight,
+    },
+    summaryKicker: { fontSize: 11.5, ...fonts.semiBold, color: c.primary, letterSpacing: 1 },
+    summaryAmountRow: { marginTop: 6, flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+    summaryAmount: { fontSize: 34, ...fonts.semiBold, color: c.text, letterSpacing: -0.6 },
+    summaryAcross: { fontSize: 13, ...fonts.regular, color: c.textSub },
+
+    /* Section row */
+    sectionRow: {
+      marginTop: 20, marginHorizontal: 20,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
+    sectionLabel: { fontSize: 12, ...fonts.semiBold, color: c.textMuted, letterSpacing: 1 },
+
+    /* List */
+    listContent: { paddingHorizontal: 20, paddingBottom: 120 },
+
+    /* FAB */
+    fab: {
+      position: 'absolute', right: 20, bottom: 32,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      height: 52,
+      paddingHorizontal: 22,
+      borderRadius: 26,
+      backgroundColor: c.primary,
+      shadowColor: c.primary,
+      shadowOpacity: 0.45,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 10,
+    },
+    fabPlus: { fontSize: 22, ...fonts.semiBold, color: c.bg, lineHeight: 22 },
+    fabText: { fontSize: 15, ...fonts.semiBold, color: c.bg },
+
+    /* Empty state */
+    emptyBlock: {
+      flex: 1,
+      paddingHorizontal: 28,
+      paddingTop: 48,
+      alignItems: 'center',
+    },
+    emptyStamp: {
+      width: 84, height: 84, borderRadius: 42,
+      backgroundColor: c.accentLight,
+      borderWidth: 2, borderColor: c.accent,
+      borderStyle: 'dashed',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    emptyStampGlyph: { fontSize: 32, ...fonts.bold, color: c.accent, lineHeight: 36 },
+    emptyTitle: { marginTop: 20, fontSize: 28, ...fonts.bold, color: c.text, letterSpacing: -0.4 },
+    emptySub: {
+      marginTop: 8,
+      fontSize: 14.5, lineHeight: 21,
+      ...fonts.regular,
+      color: c.textSub,
+      textAlign: 'center',
+      maxWidth: 280,
+    },
+    emptyPrimaryBtn: {
+      marginTop: 32, width: '100%',
+      backgroundColor: c.primary,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    emptyPrimaryBtnText: { fontSize: 16, ...fonts.semiBold, color: c.bg },
   });
 }
