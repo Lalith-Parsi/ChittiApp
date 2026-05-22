@@ -5,6 +5,7 @@ export type RootStackParamList = {
   AddMember: { groupId: string };
   Draw: { groupId: string; cycleId: string };
   PaymentTracking: { groupId: string; cycleId: string };
+  CycleReceipt: { groupId: string; cycleId: string };
   MemberDetail: { groupId: string; memberId: string };
   MemberPublicView: { token: string };
 };

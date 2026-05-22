@@ -12,6 +12,7 @@ import GroupDetailScreen from '../screens/GroupDetailScreen';
 import AddMemberScreen from '../screens/AddMemberScreen';
 import DrawScreen from '../screens/DrawScreen';
 import PaymentTrackingScreen from '../screens/PaymentTrackingScreen';
+import CycleReceiptScreen from '../screens/CycleReceiptScreen';
 import MemberDetailScreen from '../screens/MemberDetailScreen';
 import MemberPublicViewScreen from '../screens/MemberPublicViewScreen';
 
@@ -51,6 +52,7 @@ export default function AppNavigator() {
             <Stack.Screen name="AddMember" component={AddMemberScreen} />
             <Stack.Screen name="Draw" component={DrawScreen} />
             <Stack.Screen name="PaymentTracking" component={PaymentTrackingScreen} />
+            <Stack.Screen name="CycleReceipt" component={CycleReceiptScreen} />
             <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
             <Stack.Screen name="MemberPublicView" component={MemberPublicViewScreen} />
           </>

@@ -1,25 +1,33 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { ChittiGroup, DrawType, Member } from '../types';
 import { getGroupById, upsertGroup } from '../storage';
-import { getEligibleMembers, calculateDividend } from '../utils/chitti';
+import {
+  assertMoneyConservation,
+  calculateDividend,
+  getChitValue,
+  getEligibleMembers,
+  getForemanCommission,
+  getMaxDiscount,
+} from '../utils/chitti';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../lib/ThemeContext';
-import { ThemeColors, fonts } from '../lib/theme';
+import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
+import {
+  Avatar,
+  Card,
+  Kicker,
+  MoneyEquation,
+  NavHeader,
+  Pill,
+  PrimaryButton,
+  Segmented,
+} from '../components/chitti-ui';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Draw'>;
 type Route = RouteProp<RootStackParamList, 'Draw'>;
-
-interface AuctionBid { memberId: string; bid: string; }
-
-const DRAW_OPTIONS: { type: DrawType; icon: string; label: string }[] = [
-  { type: 'lottery',     icon: 'shuffle',   label: 'Lottery'     },
-  { type: 'auction',     icon: 'hammer',    label: 'Auction'     },
-  { type: 'self-assign', icon: 'hand-left', label: 'Self Assign' },
-];
 
 export default function DrawScreen() {
   const navigation = useNavigation<Nav>();
@@ -28,23 +36,21 @@ export default function DrawScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const [group, setGroup]       = useState<ChittiGroup | null>(null);
-  const [eligible, setEligible] = useState<Member[]>([]);
-  const [winner, setWinner]     = useState<Member | null>(null);
-  const [bids, setBids]         = useState<AuctionBid[]>([]);
-  const [spinning, setSpinning] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [drawType, setDrawType] = useState<DrawType>('lottery');
+  const [group, setGroup] = useState<ChittiGroup | null>(null);
+  const [mode, setMode] = useState<'lottery' | 'manual'>('lottery');
+  const [rolling, setRolling] = useState(false);
+  const [rollingDisplay, setRollingDisplay] = useState<string>('');
+  const [winner, setWinner] = useState<Member | null>(null);
+  const [prizeStr, setPrizeStr] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     getGroupById(groupId).then(g => {
       if (!g) return;
       setGroup(g);
-      const el = getEligibleMembers(g);
-      setEligible(el);
-      setBids(el.map(m => ({ memberId: m.id, bid: '' })));
       const cycle = g.cycles.find(c => c.id === cycleId);
-      if (cycle) setDrawType(cycle.drawType);
+      if (cycle?.drawType === 'manual' || cycle?.drawType === 'auction') setMode('manual');
     });
   }, [groupId, cycleId]);
 
@@ -52,235 +58,418 @@ export default function DrawScreen() {
   const cycle = group.cycles.find(c => c.id === cycleId);
   if (!cycle) return null;
 
-  const totalPool    = group.amount * group.members.length;
-  const isLottery    = drawType === 'lottery';
-  const isSelfAssign = drawType === 'self-assign';
+  const chitValue = getChitValue(group);
+  const commission = getForemanCommission(group);
+  const maxDiscount = getMaxDiscount(group);
+  const eligible = getEligibleMembers(group);
 
-  const runLottery = () => {
-    if (eligible.length === 0) { alert('All members have already received the pot.'); return; }
-    setSpinning(true); setWinner(null);
-    let count = 0;
-    const interval = setInterval(() => {
-      setWinner(eligible[Math.floor(Math.random() * eligible.length)]);
-      if (++count >= 15) { clearInterval(interval); setSpinning(false); }
-    }, 100);
+  const prize = parseInt(prizeStr.replace(/\D/g, ''), 10) || 0;
+  const discount = Math.max(0, chitValue - prize);
+  const dividendPerMember = calculateDividend(chitValue, prize || chitValue, group.members.length || 1, commission);
+  const isAboveCap = discount > maxDiscount;
+  const isBelowZero = prize > chitValue;
+  const manualInvalid = !winner || prize <= 0 || isAboveCap || isBelowZero;
+  const balanced = !manualInvalid && assertMoneyConservation({
+    chitValue,
+    prize,
+    foremanCommission: commission,
+    dividendPerMember,
+    members: group.members.length,
+  });
+
+  /* ───────── Lottery ───────── */
+  const rollLottery = () => {
+    if (eligible.length === 0) {
+      Alert.alert('No eligible members', 'All members have already been prized this term.');
+      return;
+    }
+    setRolling(true);
+    setWinner(null);
+    let ticks = 0;
+    const total = 18;
+    const tick = () => {
+      const pick = eligible[Math.floor(Math.random() * eligible.length)];
+      setRollingDisplay(pick.name);
+      ticks++;
+      if (ticks >= total) {
+        setRolling(false);
+        setWinner(pick);
+      } else {
+        // Slow down as we approach the final tick.
+        const delay = 80 + ticks * 18;
+        setTimeout(tick, delay);
+      }
+    };
+    setTimeout(tick, 60);
   };
 
-  const getAuctionWinner = () => {
-    const valid = bids.filter(b => b.bid !== '' && !isNaN(parseInt(b.bid)));
-    if (valid.length === 0) { alert('Enter at least one bid amount'); return; }
-    const min = Math.min(...valid.map(b => parseInt(b.bid)));
-    const w = group!.members.find(m => m.id === valid.find(b => parseInt(b.bid) === min)?.memberId);
-    if (w) setWinner(w);
-  };
-
-  const confirmWinner = async () => {
+  /* ───────── Save ───────── */
+  const conduct = async () => {
     if (!winner) return;
-    setConfirmed(true);
-    const winAmount = (isLottery || isSelfAssign)
-      ? totalPool
-      : parseInt(bids.find(b => b.memberId === winner.id)?.bid ?? String(totalPool));
-    const dividend = (!isLottery && !isSelfAssign && group!.members.length > 0)
-      ? calculateDividend(totalPool, winAmount, group!.members.length) : 0;
-    const updatedMembers = group!.members.map(m =>
-      m.id === winner.id ? { ...m, hasReceived: true, cycleReceived: cycle.cycleNumber } : m
-    );
-    const updatedCycles = group!.cycles.map(c =>
-      c.id === cycleId ? { ...c, winnerId: winner.id, winAmount, discount: totalPool - winAmount, dividendPerMember: dividend, conducted: true, drawType, date: new Date().toISOString() } : c
-    );
-    await upsertGroup({ ...group!, members: updatedMembers, cycles: updatedCycles });
+    setSaving(true);
+    try {
+      const isLottery = mode === 'lottery';
+      const finalPrize = isLottery ? chitValue : prize;
+      const finalDividend = isLottery
+        ? 0
+        : calculateDividend(chitValue, finalPrize, group.members.length, commission);
+
+      const updatedMembers = group.members.map(m =>
+        m.id === winner.id ? { ...m, hasReceived: true, cycleReceived: cycle.cycleNumber } : m,
+      );
+      const updatedCycles = group.cycles.map(c =>
+        c.id !== cycleId ? c : {
+          ...c,
+          winnerId: winner.id,
+          winAmount: finalPrize,
+          discount: chitValue - finalPrize,
+          foremanCommission: commission,
+          dividendPerMember: finalDividend,
+          conducted: true,
+          drawType: (isLottery ? 'lottery' : 'manual') as DrawType,
+          date: new Date().toISOString(),
+        },
+      );
+      await upsertGroup({ ...group, members: updatedMembers, cycles: updatedCycles });
+      setConfirming(false);
+      navigation.replace('CycleReceipt', { groupId, cycleId });
+    } catch (e: unknown) {
+      Alert.alert('Could not record', e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const setBid = (memberId: string, val: string) =>
-    setBids(prev => prev.map(b => b.memberId === memberId ? { ...b, bid: val } : b));
-
-  const winnerBid = winner ? parseInt(bids.find(b => b.memberId === winner.id)?.bid ?? '0') : 0;
+  const prizedCount = group.members.length - eligible.length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Cycle {cycle.cycleNumber} Draw</Text>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <NavHeader onBack={() => navigation.goBack()} title={`Cycle ${cycle.cycleNumber} · ${group.name}`} />
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+        <Text style={styles.title}>Conduct the draw</Text>
+        <Text style={styles.subtitle}>Everyone has paid — pick who takes this month's pot.</Text>
+
+        <View style={{ marginTop: 18 }}>
+          <Segmented
+            options={[
+              { id: 'lottery', label: 'Lottery' },
+              { id: 'manual', label: 'Manual entry' },
+            ]}
+            value={mode}
+            onChange={setMode}
+          />
+        </View>
+
+        <View style={styles.eligibleBanner}>
+          <Text style={[styles.eligibleText, tnum]}>
+            Eligible <Text style={{ ...fonts.semiBold, color: colors.text }}>{eligible.length} of {group.members.length}</Text>
+          </Text>
+          <Text style={[{ fontSize: 12.5, color: colors.textMuted }, tnum]}>{prizedCount} already prized</Text>
+        </View>
+
+        {mode === 'lottery' ? (
+          <LotteryBody
+            chitValue={chitValue}
+            rolling={rolling}
+            rollingDisplay={rollingDisplay}
+            winner={winner}
+            onRoll={rollLottery}
+          />
+        ) : (
+          <ManualBody
+            chitValue={chitValue}
+            commission={commission}
+            maxDiscount={maxDiscount}
+            members={group.members.length}
+            eligible={eligible}
+            winner={winner}
+            setWinner={setWinner}
+            prizeStr={prizeStr}
+            setPrizeStr={setPrizeStr}
+            dividendPerMember={dividendPerMember}
+            isAboveCap={isAboveCap}
+            balanced={balanced}
+          />
+        )}
+      </ScrollView>
+
+      <View style={styles.ctaBar}>
+        <PrimaryButton
+          label={mode === 'lottery'
+            ? winner ? `Record cycle for ${winner.name}` : 'Draw winner'
+            : 'Conduct draw and record'}
+          disabled={mode === 'lottery'
+            ? rolling || (winner === null)
+            : manualInvalid || rolling}
+          onPress={() => {
+            if (mode === 'lottery') {
+              if (!winner) rollLottery();
+              else setConfirming(true);
+            } else {
+              setConfirming(true);
+            }
+          }}
+        />
+        <Text style={styles.ctaFootnote}>
+          This will be recorded permanently. Every member sees it.
+        </Text>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoLabel}>Total Pool</Text>
-        <Text style={styles.infoVal}>₹{totalPool.toLocaleString()}</Text>
-        <Text style={styles.infoEligible}>{eligible.length} eligible members</Text>
-      </View>
-
-      {!confirmed && (
-        <View style={styles.switcherCard}>
-          <Text style={styles.switcherLabel}>Draw Method</Text>
-          <View style={styles.switcherRow}>
-            {DRAW_OPTIONS.map(({ type, icon, label }) => (
-              <TouchableOpacity
-                key={type}
-                style={[styles.switchBtn, drawType === type && styles.switchBtnActive]}
-                onPress={() => { setDrawType(type); setWinner(null); }}
-              >
-                <Ionicons name={icon as any} size={15} color={drawType === type ? '#fff' : colors.textSub} />
-                <Text style={[styles.switchText, drawType === type && styles.switchTextActive]}>{label}</Text>
+      <Modal visible={confirming} transparent animationType="slide" onRequestClose={() => setConfirming(false)}>
+        <View style={styles.sheetBackdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.grabber} />
+            <Text style={styles.sheetTitle}>Record this draw?</Text>
+            <Text style={styles.sheetSub}>
+              You're prizing <Text style={styles.sheetBold}>{winner?.name ?? '—'}</Text> for{' '}
+              <Text style={styles.sheetBold}>₹{fmtINR(mode === 'lottery' ? chitValue : prize)}</Text>. Every member will see this.
+              You can't undo it — only correct it with a new entry in the audit log.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+              <TouchableOpacity onPress={() => setConfirming(false)} style={styles.sheetSecondary}>
+                <Text style={styles.sheetSecondaryText}>Go back</Text>
               </TouchableOpacity>
-            ))}
+              <View style={{ flex: 1.4 }}>
+                <PrimaryButton label={saving ? 'Recording…' : 'Yes, record'} disabled={saving} onPress={conduct} />
+              </View>
+            </View>
           </View>
         </View>
+      </Modal>
+    </View>
+  );
+}
+
+/* ───────────────────────── Lottery body ───────────────────────── */
+
+function LotteryBody({ chitValue, rolling, rollingDisplay, winner, onRoll }: {
+  chitValue: number;
+  rolling: boolean;
+  rollingDisplay: string;
+  winner: Member | null;
+  onRoll: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ marginTop: 18, gap: 14 }}>
+      <Card>
+        <Kicker>THE POT</Kicker>
+        <Text style={[{ marginTop: 4, fontSize: 36, ...fonts.bold, color: colors.text, letterSpacing: -0.7 }, tnum]}>
+          ₹{fmtINR(chitValue)}
+        </Text>
+      </Card>
+
+      <Card style={{ minHeight: 160, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        {rolling ? (
+          <>
+            <Kicker>DRAWING</Kicker>
+            <Text style={{ marginTop: 12, fontSize: 28, ...fonts.bold, color: colors.text, letterSpacing: -0.4 }} numberOfLines={1}>
+              {rollingDisplay || '…'}
+            </Text>
+            <ActivityIndicator style={{ marginTop: 14 }} color={colors.primary} />
+          </>
+        ) : winner ? (
+          <>
+            <Avatar name={winner.name} size={72} />
+            <Kicker color={colors.accent} style={{ marginTop: 14 }}>CYCLE WINNER</Kicker>
+            <Text style={{ marginTop: 6, fontSize: 28, ...fonts.bold, color: colors.text, letterSpacing: -0.5 }} numberOfLines={1}>
+              {winner.name}
+            </Text>
+            <Text style={[{ marginTop: 4, fontSize: 12, color: colors.textMuted }, tnum]}>
+              {winner.phone}
+            </Text>
+            <Text style={{
+              marginTop: 12, fontSize: 12, color: colors.textMuted, textAlign: 'center', maxWidth: 260, lineHeight: 18,
+            }}>
+              Lottery prizes the full pot — no discount, no dividend. Foreman commission is applied either way.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Kicker>READY</Kicker>
+            <Text style={{ marginTop: 8, fontSize: 14, color: colors.textMuted, textAlign: 'center', maxWidth: 260, lineHeight: 20 }}>
+              Tap "Draw winner" below to pick a random eligible member.
+            </Text>
+            <Pill tone="primary" style={{ marginTop: 14 }}>Lottery</Pill>
+          </>
+        )}
+      </Card>
+
+      {!rolling && (
+        <TouchableOpacity onPress={onRoll} style={{ alignSelf: 'center' }}>
+          <Text style={{ fontSize: 13, ...fonts.semiBold, color: colors.primary, paddingVertical: 6 }}>
+            {winner ? 'Re-roll' : 'Tap to roll'}
+          </Text>
+        </TouchableOpacity>
       )}
+    </View>
+  );
+}
 
-      {!confirmed ? (
-        <>
-          {isSelfAssign && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Select winner</Text>
-              <Text style={styles.sectionSub}>Tap the member who receives the pot this cycle</Text>
-              {eligible.map(m => (
-                <TouchableOpacity key={m.id} style={[styles.memberRow, winner?.id === m.id && styles.memberRowSelected]} onPress={() => setWinner(m)} activeOpacity={0.8}>
-                  <View style={[styles.avatar, winner?.id === m.id && styles.avatarSelected]}>
-                    <Text style={[styles.avatarText, winner?.id === m.id && { color: '#fff' }]}>{m.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.memberName}>{m.name}</Text>
-                    <Text style={styles.memberPhone}>{m.phone}</Text>
-                  </View>
-                  {winner?.id === m.id && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
-                </TouchableOpacity>
-              ))}
-              {winner && (
-                <TouchableOpacity style={styles.actionBtn} onPress={confirmWinner}>
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.actionBtnText}>Confirm {winner.name}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+/* ───────────────────────── Manual body ───────────────────────── */
 
-          {isLottery && (
-            <View style={styles.section}>
-              <TouchableOpacity style={styles.actionBtn} onPress={runLottery} disabled={spinning}>
-                <Ionicons name="shuffle" size={22} color="#fff" />
-                <Text style={styles.actionBtnText}>{spinning ? 'Drawing...' : 'Pick Winner'}</Text>
-              </TouchableOpacity>
-              {winner && (
-                <View style={styles.winnerCard}>
-                  <View style={styles.winnerAvatar}>
-                    <Text style={styles.winnerAvatarText}>{winner.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.winnerName}>{winner.name}</Text>
-                  <Text style={styles.winnerPhone}>{winner.phone}</Text>
-                  <Text style={styles.winnerAmount}>₹{totalPool.toLocaleString()}</Text>
-                  {!spinning && (
-                    <TouchableOpacity style={[styles.actionBtn, { marginTop: 16, alignSelf: 'stretch' }]} onPress={confirmWinner}>
-                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                      <Text style={styles.actionBtnText}>Confirm Winner</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            </View>
-          )}
+function ManualBody({
+  chitValue, commission, maxDiscount, members, eligible, winner, setWinner,
+  prizeStr, setPrizeStr, dividendPerMember, isAboveCap, balanced,
+}: {
+  chitValue: number;
+  commission: number;
+  maxDiscount: number;
+  members: number;
+  eligible: Member[];
+  winner: Member | null;
+  setWinner: (m: Member | null) => void;
+  prizeStr: string;
+  setPrizeStr: (s: string) => void;
+  dividendPerMember: number;
+  isAboveCap: boolean;
+  balanced: boolean;
+}) {
+  const { colors } = useTheme();
+  const [picking, setPicking] = useState(false);
 
-          {!isLottery && !isSelfAssign && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Enter Bids (₹)</Text>
-              <Text style={styles.sectionSub}>Lowest bid wins the pot at their bid amount</Text>
-              {eligible.map(m => (
-                <View key={m.id} style={styles.bidRow}>
-                  <View style={styles.avatar}><Text style={styles.avatarText}>{m.name.charAt(0).toUpperCase()}</Text></View>
-                  <Text style={[styles.memberName, { flex: 1 }]}>{m.name}</Text>
-                  <TextInput style={styles.bidInput} placeholder="₹ Bid" keyboardType="numeric" value={bids.find(b => b.memberId === m.id)?.bid ?? ''} onChangeText={val => setBid(m.id, val)} placeholderTextColor={colors.textHint} />
-                </View>
-              ))}
-              <TouchableOpacity style={styles.actionBtn} onPress={getAuctionWinner}>
-                <Ionicons name="hammer" size={20} color="#fff" />
-                <Text style={styles.actionBtnText}>Determine Winner</Text>
-              </TouchableOpacity>
-              {winner && (
-                <View style={styles.winnerCard}>
-                  <View style={styles.winnerAvatar}><Text style={styles.winnerAvatarText}>{winner.name.charAt(0).toUpperCase()}</Text></View>
-                  <Text style={styles.winnerName}>{winner.name}</Text>
-                  <Text style={styles.winnerAmount}>Wins ₹{winnerBid.toLocaleString()}</Text>
-                  <Text style={styles.dividendText}>Dividend/member: ₹{calculateDividend(totalPool, winnerBid, group!.members.length).toLocaleString()}</Text>
-                  <TouchableOpacity style={[styles.actionBtn, { marginTop: 16, alignSelf: 'stretch' }]} onPress={confirmWinner}>
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                    <Text style={styles.actionBtnText}>Confirm Winner</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+  const prize = parseInt(prizeStr.replace(/\D/g, ''), 10) || 0;
+  const discount = Math.max(0, chitValue - prize);
+
+  return (
+    <View style={{ marginTop: 18, gap: 14 }}>
+      {/* Winner picker */}
+      <View>
+        <Text style={{ fontSize: 13, ...fonts.semiBold, color: colors.text }}>Who's taking it this cycle?</Text>
+        <TouchableOpacity
+          onPress={() => setPicking(true)}
+          style={{
+            marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 12,
+            backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+          }}
+        >
+          {winner ? (
+            <>
+              <Avatar name={winner.name} size={36} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, ...fonts.semiBold, color: colors.text }}>{winner.name}</Text>
+                <Text style={[{ fontSize: 12, color: colors.textMuted, marginTop: 2 }, tnum]}>{winner.phone}</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.divider2 }} />
+              <Text style={{ flex: 1, fontSize: 14, color: colors.textMuted }}>
+                Pick from {eligible.length} eligible members
+              </Text>
+            </>
           )}
-        </>
-      ) : (
-        <View style={styles.successCard}>
-          <Ionicons name="trophy" size={56} color="#FFD700" />
-          <Text style={styles.successTitle}>Draw Complete!</Text>
-          <Text style={styles.successName}>{winner?.name}</Text>
-          <Text style={styles.successSub}>has won this cycle's pot</Text>
-          <TouchableOpacity style={[styles.actionBtn, { marginTop: 24, alignSelf: 'stretch' }]} onPress={() => navigation.goBack()}>
-            <Text style={styles.actionBtnText}>Back to Group</Text>
-          </TouchableOpacity>
+          <Text style={{ fontSize: 16, color: colors.textMuted }}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Prize input */}
+      <View>
+        <Text style={{ fontSize: 13, ...fonts.semiBold, color: colors.text }}>Prize amount (after discount)</Text>
+        <View style={{
+          marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10,
+          paddingHorizontal: 14, paddingVertical: 12,
+          backgroundColor: colors.card,
+          borderRadius: 14, borderWidth: 1, borderColor: isAboveCap ? colors.danger : 'transparent',
+        }}>
+          <Text style={{ fontSize: 22, color: colors.textSub, ...fonts.medium }}>₹</Text>
+          <TextInput
+            style={[{ flex: 1, fontSize: 24, ...fonts.medium, color: colors.text }, tnum]}
+            placeholder="70,000"
+            placeholderTextColor={colors.textHint}
+            keyboardType="numeric"
+            value={prize ? fmtINR(prize) : ''}
+            onChangeText={(t) => setPrizeStr(t.replace(/\D/g, ''))}
+          />
         </View>
-      )}
-    </ScrollView>
+        <Text style={{
+          marginTop: 6, fontSize: 12,
+          color: isAboveCap ? colors.danger : colors.textMuted,
+        }}>
+          {isAboveCap ? (
+            `Discount ₹${fmtINR(discount)} exceeds the ${Math.round(maxDiscount / chitValue * 100)}% cap (₹${fmtINR(maxDiscount)}).`
+          ) : prize > 0 ? (
+            `Discount ₹${fmtINR(discount)} · ${chitValue ? Math.round(discount / chitValue * 100) : 0}% of the pot`
+          ) : (
+            'Enter what the winner is willing to take.'
+          )}
+        </Text>
+      </View>
+
+      {/* Live invariant */}
+      <MoneyEquation
+        chitValue={chitValue}
+        prize={prize}
+        foremanCommission={commission}
+        dividendPerMember={dividendPerMember}
+        members={members}
+        balanced={balanced}
+      />
+
+      {/* Picker modal */}
+      <Modal visible={picking} transparent animationType="slide" onRequestClose={() => setPicking(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
+          <View style={{ backgroundColor: colors.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '70%' }}>
+            <Text style={{ fontSize: 18, ...fonts.bold, color: colors.text, marginBottom: 12 }}>Eligible members</Text>
+            <ScrollView>
+              {eligible.map((m, i) => (
+                <TouchableOpacity
+                  key={m.id}
+                  onPress={() => { setWinner(m); setPicking(false); }}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+                    borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border,
+                  }}
+                >
+                  <Avatar name={m.name} size={36} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, ...fonts.medium, color: colors.text }}>{m.name}</Text>
+                    <Text style={[{ fontSize: 12, color: colors.textMuted, marginTop: 2 }, tnum]}>{m.phone}</Text>
+                  </View>
+                  {winner?.id === m.id && <Text style={{ fontSize: 18, color: colors.primary }}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setPicking(false)} style={{ paddingVertical: 14, alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, ...fonts.semiBold, color: colors.textSub }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 20, paddingBottom: 40 },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 20, gap: 12 },
-    title: { fontSize: 22, ...fonts.extraBold, color: c.text },
-    infoCard: { backgroundColor: c.primary, borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16 },
-    infoLabel:    { fontSize: 13, ...fonts.medium, color: 'rgba(255,255,255,0.75)', marginBottom: 4 },
-    infoVal:      { fontSize: 32, ...fonts.extraBold, color: '#fff' },
-    infoEligible: { fontSize: 13, ...fonts.regular, color: 'rgba(255,255,255,0.75)', marginTop: 6 },
-    switcherCard: {
-      backgroundColor: c.card, borderRadius: 14, padding: 14, marginBottom: 16,
-      shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+    title: { fontSize: 28, ...fonts.bold, color: c.text, letterSpacing: -0.5, marginTop: 4 },
+    subtitle: { marginTop: 4, fontSize: 13.5, color: c.textSub },
+
+    eligibleBanner: {
+      marginTop: 16, padding: 12, backgroundColor: c.card, borderRadius: 12,
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     },
-    switcherLabel:   { fontSize: 12, ...fonts.semiBold, color: c.textMuted, marginBottom: 10 },
-    switcherRow:     { flexDirection: 'row', gap: 8 },
-    switchBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: c.inputBorder, backgroundColor: c.inputBg },
-    switchBtnActive: { backgroundColor: c.primary, borderColor: c.primary },
-    switchText:      { fontSize: 13, ...fonts.semiBold, color: c.textSub },
-    switchTextActive:{ color: '#fff' },
-    section:     { width: '100%' },
-    sectionTitle:{ fontSize: 17, ...fonts.bold, color: c.text, marginBottom: 4 },
-    sectionSub:  { fontSize: 13, ...fonts.regular, color: c.textMuted, marginBottom: 14 },
-    memberRow: {
-      flexDirection: 'row', alignItems: 'center', backgroundColor: c.card,
-      borderRadius: 12, padding: 14, marginBottom: 10, gap: 12,
-      borderWidth: 1.5, borderColor: 'transparent',
-      shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    eligibleText: { fontSize: 12.5, color: c.textSub },
+
+    fieldLabel: { fontSize: 13, ...fonts.semiBold, color: c.text },
+    amountField: {
+      marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 14, paddingVertical: 12,
+      backgroundColor: c.card,
+      borderRadius: 14, borderWidth: 1, borderColor: 'transparent',
     },
-    memberRowSelected: { borderColor: c.primary, backgroundColor: c.primaryLight },
-    avatar:         { width: 42, height: 42, borderRadius: 21, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' },
-    avatarSelected: { backgroundColor: c.primary },
-    avatarText:     { fontSize: 17, ...fonts.bold, color: c.primaryText },
-    memberName:     { fontSize: 15, ...fonts.bold, color: c.text },
-    memberPhone:    { fontSize: 12, ...fonts.regular, color: c.textMuted, marginTop: 2 },
-    actionBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.primary, borderRadius: 14, paddingVertical: 15, marginTop: 8, marginBottom: 16 },
-    actionBtnText: { color: '#fff', fontSize: 16, ...fonts.bold },
-    winnerCard: {
-      backgroundColor: c.card, borderRadius: 16, padding: 24, alignItems: 'center',
-      shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 10, elevation: 4,
-    },
-    winnerAvatar:     { width: 70, height: 70, borderRadius: 35, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-    winnerAvatarText: { fontSize: 28, ...fonts.extraBold, color: c.primaryText },
-    winnerName:       { fontSize: 20, ...fonts.extraBold, color: c.text },
-    winnerPhone:      { fontSize: 14, ...fonts.regular, color: c.textMuted, marginTop: 4 },
-    winnerAmount:     { fontSize: 24, ...fonts.extraBold, color: c.primaryText, marginTop: 10 },
-    dividendText:     { fontSize: 14, ...fonts.medium, color: c.success, marginTop: 6 },
-    bidRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 12, padding: 12, marginBottom: 10, gap: 10 },
-    bidInput: { width: 90, borderWidth: 1.5, borderColor: c.inputBorder, borderRadius: 8, padding: 8, fontSize: 15, ...fonts.medium, color: c.text, backgroundColor: c.inputBg, textAlign: 'right' },
-    successCard: {
-      backgroundColor: c.card, borderRadius: 20, padding: 40, alignItems: 'center',
-      shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
-    },
-    successTitle: { fontSize: 24, ...fonts.extraBold, color: c.text, marginTop: 16 },
-    successName:  { fontSize: 22, ...fonts.extraBold, color: c.primaryText, marginTop: 8 },
-    successSub:   { fontSize: 15, ...fonts.regular, color: c.textMuted, marginTop: 4 },
+
+    ctaBar: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.bg },
+    ctaFootnote: { marginTop: 8, fontSize: 11, color: c.textMuted, textAlign: 'center' },
+
+    sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: c.overlay },
+    sheet: { backgroundColor: c.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingBottom: 32, paddingTop: 8 },
+    grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: c.divider2, alignSelf: 'center', marginVertical: 10 },
+    sheetTitle: { fontSize: 22, ...fonts.bold, color: c.text, letterSpacing: -0.4, marginTop: 4 },
+    sheetSub: { marginTop: 10, fontSize: 14, lineHeight: 21, ...fonts.regular, color: c.textSub },
+    sheetBold: { ...fonts.semiBold, color: c.text },
+    sheetSecondary: { flex: 1, paddingVertical: 16, backgroundColor: c.card, borderRadius: 14, alignItems: 'center' },
+    sheetSecondaryText: { fontSize: 15, ...fonts.semiBold, color: c.text },
   });
 }

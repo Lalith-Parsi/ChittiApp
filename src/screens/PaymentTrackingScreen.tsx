@@ -1,30 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
-import { ChittiGroup, Member, Payment } from '../types';
+import { ChittiGroup, Member, Payment, Cycle } from '../types';
 import { getGroupById, upsertGroup } from '../storage';
-import { getPaidCount, getCycleMonth } from '../utils/chitti';
+import { calculateDividend, getChitValue, getCycleMonth, getForemanCommission, getPaidCount } from '../utils/chitti';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../lib/ThemeContext';
-import { ThemeColors, fonts } from '../lib/theme';
-
-function ordinal(n: number) {
-  const s = ['th','st','nd','rd'], v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-function sendWhatsApp(member: Member, group: ChittiGroup, cycleNumber: number, cycleMonth: string) {
-  const phone = member.phone.replace(/\D/g, '');
-  const fullPhone = phone.startsWith('91') ? phone : `91${phone}`;
-  const payDay = group.paymentDay ? ordinal(group.paymentDay) : 'the due date';
-  const msg = `Hi ${member.name}! 👋\n\nThis is a reminder for *${group.name}* chitti.\n\n💰 Amount: ₹${group.amount.toLocaleString()}\n📅 Pay by: ${payDay} of this month\n🔄 Cycle ${cycleNumber} (${cycleMonth})\n\nPlease make your payment on time. Thank you! 🙏`;
-  Linking.openURL(`https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`);
-}
+import { ThemeColors, fonts, fmtINR, tnum } from '../lib/theme';
+import { Avatar, Kicker, MemberRow, NavHeader, Pill, PrimaryButton } from '../components/chitti-ui';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'PaymentTracking'>;
 type Route = RouteProp<RootStackParamList, 'PaymentTracking'>;
+
+type Mode = NonNullable<Payment['mode']>;
+const MODES: Mode[] = ['upi', 'cash', 'bank', 'cheque', 'other'];
+const MODE_LABEL: Record<Mode, string> = { upi: 'UPI', cash: 'Cash', bank: 'Bank', cheque: 'Cheque', other: 'Other' };
+const MODE_GLYPH: Record<Mode, string> = { upi: '⊕', cash: '₹', bank: '⌗', cheque: '✎', other: '•' };
 
 export default function PaymentTrackingScreen() {
   const navigation = useNavigation<Nav>();
@@ -34,219 +26,313 @@ export default function PaymentTrackingScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [group, setGroup] = useState<ChittiGroup | null>(null);
-  useEffect(() => { getGroupById(groupId).then(setGroup); }, [groupId]);
+  const [editing, setEditing] = useState<Member | null>(null);
 
+  useEffect(() => { getGroupById(groupId).then(setGroup); }, [groupId]);
   if (!group) return null;
+
   const cycle = group.cycles.find(c => c.id === cycleId);
   if (!cycle) return null;
 
+  const chitValue = getChitValue(group);
+  const commission = getForemanCommission(group);
+  // Estimate "last cycle dividend" for due-this-cycle display. Until a real auction
+  // is recorded, dividend is 0 and the due equals the gross subscription.
+  const lastConducted = [...group.cycles].slice(0, cycle.cycleNumber - 1).reverse().find(c => c.conducted);
+  const lastDividend = lastConducted?.dividendPerMember ??
+    (lastConducted ? calculateDividend(chitValue, lastConducted.winAmount, group.members.length || 1, lastConducted.foremanCommission ?? commission) : 0);
+  const due = Math.max(0, group.amount - lastDividend);
+
+  const total = group.members.length;
   const paidCount = getPaidCount(cycle);
-  const total     = group.members.length;
-  const progress  = total > 0 ? paidCount / total : 0;
-  const cycleMonth = getCycleMonth(group, cycle.cycleNumber);
+  const allPaid = total > 0 && paidCount === total;
 
-  const pendingMembers = group.members.filter(m => {
-    const p = cycle.payments.find(p => p.memberId === m.id);
-    return !p?.paid;
-  });
+  const collected = paidCount * due;
+  const pending = (total - paidCount) * due;
 
-  const togglePayment = async (memberId: string) => {
-    const updatedCycles = group.cycles.map(c => {
-      if (c.id !== cycleId) return c;
-      return { ...c, payments: c.payments.map((p: Payment) =>
-        p.memberId === memberId ? { ...p, paid: !p.paid, paidDate: !p.paid ? new Date().toISOString() : undefined } : p
-      )};
-    });
+  const updateCycle = async (mut: (c: Cycle) => Cycle) => {
+    const updatedCycles = group.cycles.map(c => c.id === cycleId ? mut(c) : c);
     const updated = { ...group, cycles: updatedCycles };
     await upsertGroup(updated);
     setGroup(updated);
   };
 
-  const markAllPaid = async () => {
-    if (!window.confirm('Mark all members as paid for this cycle?')) return;
-    const updatedCycles = group.cycles.map(c => c.id !== cycleId ? c : { ...c, payments: c.payments.map((p: Payment) => ({ ...p, paid: true, paidDate: p.paid ? p.paidDate : new Date().toISOString() })) });
-    const updated = { ...group, cycles: updatedCycles };
-    await upsertGroup(updated); setGroup(updated);
+  const markPaid = async (memberId: string, mode: Mode, note: string) => {
+    await updateCycle(c => ({
+      ...c,
+      payments: c.payments.map(p =>
+        p.memberId === memberId
+          ? { ...p, paid: true, paidDate: new Date().toISOString(), mode, note: note.trim() || undefined }
+          : p,
+      ),
+    }));
+    setEditing(null);
   };
 
-  const unmarkAllPaid = async () => {
-    if (!window.confirm('Unmark all payments for this cycle?')) return;
-    const updatedCycles = group.cycles.map(c => c.id !== cycleId ? c : { ...c, payments: c.payments.map((p: Payment) => ({ ...p, paid: false, paidDate: undefined })) });
-    const updated = { ...group, cycles: updatedCycles };
-    await upsertGroup(updated); setGroup(updated);
+  const unmark = async (memberId: string) => {
+    Alert.alert('Unmark payment?', 'This will move them back to pending.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Unmark', style: 'destructive', onPress: () => updateCycle(c => ({
+        ...c,
+        payments: c.payments.map(p => p.memberId === memberId ? { ...p, paid: false, paidDate: undefined, mode: undefined } : p),
+      })) },
+    ]);
   };
 
-  const updatedCycle = group.cycles.find(c => c.id === cycleId)!;
-
-  const renderMember = ({ item }: { item: Member }) => {
-    const payment = updatedCycle.payments.find(p => p.memberId === item.id);
-    const isPaid  = payment?.paid ?? false;
-    return (
-      <TouchableOpacity style={[styles.memberRow, isPaid && styles.memberRowPaid]} onPress={() => togglePayment(item.id)} activeOpacity={0.8}>
-        <View style={[styles.avatar, isPaid && styles.avatarPaid]}>
-          <Text style={[styles.avatarText, isPaid && { color: colors.success }]}>{item.name.charAt(0).toUpperCase()}</Text>
-        </View>
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{item.name}</Text>
-          <Text style={styles.memberPhone}>{item.phone}</Text>
-          {isPaid && payment?.paidDate && (
-            <Text style={styles.paidDate}>Paid {new Date(payment.paidDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
-          )}
-        </View>
-        {!isPaid ? (
-          <TouchableOpacity style={styles.waBtnSmall} onPress={() => sendWhatsApp(item, group, updatedCycle.cycleNumber, cycleMonth)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.badgePaid}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-            <Text style={styles.badgePaidText}>Paid</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
+  const markAll = async () => {
+    Alert.alert('Mark all paid?', `All ${total} members will be marked paid with mode "cash".`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Mark all', onPress: () => updateCycle(c => ({
+        ...c,
+        payments: c.payments.map(p => p.paid ? p : { ...p, paid: true, paidDate: new Date().toISOString(), mode: 'cash' }),
+      })) },
+    ]);
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Cycle {cycle.cycleNumber} Payments</Text>
-        {updatedCycle.conducted && (
-          <View style={styles.conductedBadge}>
-            <Ionicons name="checkmark-circle" size={13} color={colors.success} />
-            <Text style={styles.conductedText}>Done</Text>
-          </View>
-        )}
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <NavHeader onBack={() => navigation.goBack()} title={group.name} />
 
-      {updatedCycle.conducted && updatedCycle.winnerId && (() => {
-        const winner = group.members.find(m => m.id === updatedCycle.winnerId);
-        return winner ? (
-          <View style={styles.winnerBanner}>
-            <Ionicons name="trophy" size={18} color={colors.warning} />
-            <Text style={styles.winnerBannerText}>{winner.name} won ₹{updatedCycle.winAmount.toLocaleString()}</Text>
-          </View>
-        ) : null;
-      })()}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        <View style={styles.titleBlock}>
+          <Kicker color={colors.primary}>CYCLE {cycle.cycleNumber} OF {group.durationMonths} · {getCycleMonth(group, cycle.cycleNumber).toUpperCase()}</Kicker>
+          <Text style={styles.title}>Mark this month's payments</Text>
 
-      <View style={styles.progressCard}>
-        <View style={styles.progressStats}>
-          <View style={styles.progressStat}>
-            <Text style={[styles.progressVal, { color: colors.success }]}>{paidCount}</Text>
-            <Text style={styles.progressLabel}>Paid</Text>
-          </View>
-          <View style={styles.progressStat}>
-            <Text style={[styles.progressVal, { color: colors.warning }]}>{total - paidCount}</Text>
-            <Text style={styles.progressLabel}>Pending</Text>
-          </View>
-          <View style={styles.progressStat}>
-            <Text style={[styles.progressVal, { color: colors.primaryText }]}>₹{(paidCount * group.amount).toLocaleString()}</Text>
-            <Text style={styles.progressLabel}>Collected</Text>
+          <View style={styles.breakdownRow}>
+            <Text style={[styles.breakdownNum, tnum]}>₹{fmtINR(group.amount)}</Text>
+            <Text style={styles.breakdownMuted}> gross </Text>
+            <Text style={styles.breakdownMuted}>− </Text>
+            <Text style={[styles.breakdownNum, tnum]}>₹{fmtINR(lastDividend)}</Text>
+            <Text style={styles.breakdownMuted}> dividend </Text>
+            <Text style={styles.breakdownMuted}>= </Text>
+            <Text style={[styles.breakdownDue, tnum]}>₹{fmtINR(due)}</Text>
+            <Text style={styles.breakdownMuted}> each member</Text>
           </View>
         </View>
-        <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${progress * 100}%` as any }]} />
-        </View>
-        <Text style={styles.progressText}>{Math.round(progress * 100)}% collected</Text>
-      </View>
 
-      <View style={styles.actionsRow}>
-        <Text style={styles.sectionHint}>Tap row to toggle · 📱 to remind</Text>
-        <View style={styles.actionBtns}>
-          {pendingMembers.length > 0 && (
-            <TouchableOpacity onPress={() => pendingMembers.forEach(m => sendWhatsApp(m, group, updatedCycle.cycleNumber, cycleMonth))} style={styles.remindBtn}>
-              <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
-              <Text style={styles.remindBtnText}>Remind ({pendingMembers.length})</Text>
+        {/* Totals strip */}
+        <View style={styles.statsRow}>
+          <Stat label="Collected" value={`₹${fmtINR(collected)}`} tone="primary" />
+          <Stat label="Pending"   value={`₹${fmtINR(pending)}`}   tone={pending === 0 ? 'muted' : 'neutral'} />
+          <Stat label="Paid"      value={`${paidCount}/${total}`} tone="neutral" />
+        </View>
+
+        {/* Bulk action */}
+        <View style={styles.bulkRow}>
+          <Text style={[{ fontSize: 12, color: colors.textMuted }, tnum]}>{total - paidCount} still to mark</Text>
+          {!allPaid && total > 0 && (
+            <TouchableOpacity onPress={markAll} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Mark all paid</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={markAllPaid} style={styles.markAllBtn}>
-            <Text style={styles.markAllText}>All Paid</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={unmarkAllPaid} style={styles.unmarkBtn}>
-            <Text style={styles.unmarkText}>Unmark</Text>
-          </TouchableOpacity>
         </View>
+
+        {/* Member list */}
+        <View style={styles.memberCard}>
+          {group.members.map((m, i) => {
+            const payment = cycle.payments.find(p => p.memberId === m.id);
+            const paid = payment?.paid ?? false;
+            const mode = payment?.mode;
+            const paidOn = payment?.paidDate
+              ? new Date(payment.paidDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              : null;
+            return (
+              <View key={m.id} style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
+                <MemberRow
+                  name={m.name}
+                  phone={paid && paidOn ? `Marked · ${paidOn}${mode ? ` · ${MODE_LABEL[mode]}` : ''}` : m.phone}
+                  prizedCycle={m.cycleReceived}
+                  status={
+                    paid ? (
+                      <TouchableOpacity onPress={() => unmark(m.id)}>
+                        <Pill tone="paid">✓ ₹{fmtINR(due)}</Pill>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity onPress={() => setEditing(m)} style={styles.markBtn}>
+                        <Text style={styles.markBtnText}>Mark paid</Text>
+                      </TouchableOpacity>
+                    )
+                  }
+                />
+              </View>
+            );
+          })}
+        </View>
+
+        {group.members.length === 0 && (
+          <Text style={{ textAlign: 'center', padding: 20, color: colors.textMuted }}>
+            No members yet — add members from the group screen.
+          </Text>
+        )}
+      </ScrollView>
+
+      <View style={styles.ctaBar}>
+        <PrimaryButton
+          label={allPaid ? 'Conduct draw' : `Conduct draw — ${total - paidCount} pending`}
+          trailingArrow={allPaid}
+          disabled={!allPaid}
+          onPress={() => navigation.navigate('Draw', { groupId, cycleId })}
+        />
       </View>
 
-      <FlatList data={group.members} keyExtractor={m => m.id} contentContainerStyle={styles.list} renderItem={renderMember} />
-
-      {paidCount === total && total > 0 && (
-        <View style={styles.readyBanner}>
-          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-          <Text style={styles.readyText}>All paid! Ready for the draw.</Text>
-          <TouchableOpacity style={styles.drawNowBtn} onPress={() => navigation.navigate('Draw', { groupId, cycleId })}>
-            <Text style={styles.drawNowText}>Draw Now</Text>
-          </TouchableOpacity>
-        </View>
+      {editing && (
+        <MarkPaymentSheet
+          member={editing}
+          amount={due}
+          onCancel={() => setEditing(null)}
+          onSave={(mode, note) => markPaid(editing.id, mode, note)}
+        />
       )}
+    </View>
+  );
+}
+
+/* ───────────────────────── Mark-payment sheet ───────────────────────── */
+
+function MarkPaymentSheet({ member, amount, onCancel, onSave }: {
+  member: Member;
+  amount: number;
+  onCancel: () => void;
+  onSave: (mode: Mode, note: string) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [mode, setMode] = useState<Mode>('upi');
+  const [note, setNote] = useState('');
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, justifyContent: 'flex-end' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1, backgroundColor: colors.overlay }} onPress={onCancel} />
+        <View style={styles.sheet}>
+          <View style={styles.grabber} />
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <Avatar name={member.name} size={44} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, ...fonts.semiBold, color: colors.text }}>{member.name}</Text>
+              <Text style={[{ fontSize: 12.5, color: colors.textMuted, marginTop: 2 }, tnum]}>{member.phone}</Text>
+            </View>
+            <Text style={[{ fontSize: 22, ...fonts.bold, color: colors.text }, tnum]}>₹{fmtINR(amount)}</Text>
+          </View>
+
+          <Kicker>HOW DID THEY PAY?</Kicker>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            {MODES.map(m => {
+              const active = mode === m;
+              return (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => setMode(m)}
+                  style={{
+                    flex: 1, paddingVertical: 14, paddingHorizontal: 4,
+                    borderRadius: 12,
+                    backgroundColor: active ? colors.primaryLight : colors.card,
+                    borderWidth: 1, borderColor: active ? colors.primary : 'transparent',
+                    alignItems: 'center', gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 18, color: active ? colors.primary : colors.textSub }}>{MODE_GLYPH[m]}</Text>
+                  <Text style={{ fontSize: 11, ...fonts.semiBold, color: active ? colors.primary : colors.textSub }}>
+                    {MODE_LABEL[m]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={{ marginTop: 16 }}>
+            <Kicker>OPTIONAL NOTE</Kicker>
+            <View style={{
+              marginTop: 8,
+              backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+            }}>
+              <TextInput
+                style={{ fontSize: 14, ...fonts.regular, color: colors.text }}
+                placeholder="e.g. paid at office"
+                placeholderTextColor={colors.textHint}
+                value={note}
+                onChangeText={setNote}
+              />
+            </View>
+          </View>
+
+          <View style={{ marginTop: 18 }}>
+            <PrimaryButton label={`✓ Mark paid · ₹${fmtINR(amount)}`} onPress={() => onSave(mode, note)} />
+            <TouchableOpacity onPress={onCancel} style={{ paddingVertical: 12, alignItems: 'center', marginTop: 6 }}>
+              <Text style={{ fontSize: 14, ...fonts.medium, color: colors.textSub }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone: 'primary' | 'neutral' | 'muted' }) {
+  const { colors } = useTheme();
+  const fg = tone === 'primary' ? colors.primary : tone === 'muted' ? colors.textMuted : colors.text;
+  return (
+    <View style={{
+      flex: 1, paddingVertical: 10, paddingHorizontal: 12,
+      backgroundColor: colors.card, borderRadius: 12,
+      borderWidth: 1, borderColor: colors.border,
+    }}>
+      <Text style={{ fontSize: 10.5, ...fonts.semiBold, color: colors.textMuted, letterSpacing: 0.6 }}>{label.toUpperCase()}</Text>
+      <Text style={[{ marginTop: 4, fontSize: 16, ...fonts.semiBold, color: fg }, tnum]}>{value}</Text>
     </View>
   );
 }
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
-    header: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 14,
-      backgroundColor: c.header, borderBottomWidth: 1, borderBottomColor: c.border,
+    content: { paddingBottom: 120 },
+    titleBlock: { paddingHorizontal: 20, paddingTop: 4 },
+    title: { marginTop: 6, fontSize: 26, ...fonts.bold, color: c.text, letterSpacing: -0.5 },
+
+    breakdownRow: {
+      marginTop: 12,
+      backgroundColor: c.card, borderRadius: 12,
+      paddingHorizontal: 14, paddingVertical: 10,
+      flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline',
     },
-    title: { fontSize: 19, ...fonts.extraBold, color: c.text, flex: 1 },
-    conductedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.successLight, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-    conductedText:  { fontSize: 12, ...fonts.bold, color: c.success },
-    winnerBanner: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: c.warningLight, paddingHorizontal: 16, paddingVertical: 12,
-      borderBottomWidth: 1, borderBottomColor: c.border,
+    breakdownNum:   { fontSize: 13, ...fonts.semiBold, color: c.text },
+    breakdownMuted: { fontSize: 13, color: c.textMuted },
+    breakdownDue:   { fontSize: 14, ...fonts.bold, color: c.primary },
+
+    statsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 14 },
+    bulkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 12 },
+    bulkBtn: {
+      paddingHorizontal: 14, paddingVertical: 6,
+      borderRadius: 999, borderWidth: 1, borderColor: c.divider2,
     },
-    winnerBannerText: { fontSize: 14, ...fonts.bold, color: c.warning },
-    progressCard: { backgroundColor: c.card, padding: 20, borderBottomWidth: 1, borderBottomColor: c.border },
-    progressStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 },
-    progressStat:  { alignItems: 'center' },
-    progressVal:   { fontSize: 20, ...fonts.extraBold },
-    progressLabel: { fontSize: 12, ...fonts.regular, color: c.textMuted, marginTop: 2 },
-    progressBarBg:   { height: 8, backgroundColor: c.border, borderRadius: 4, overflow: 'hidden' },
-    progressBarFill: { height: '100%' as any, backgroundColor: c.success, borderRadius: 4 },
-    progressText:    { fontSize: 12, ...fonts.regular, color: c.textMuted, textAlign: 'right', marginTop: 6 },
-    actionsRow: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 16, paddingVertical: 10,
+    bulkBtnText: { fontSize: 13, ...fonts.semiBold, color: c.text },
+
+    memberCard: {
+      marginTop: 14, marginHorizontal: 20,
+      paddingHorizontal: 14,
+      backgroundColor: c.card, borderRadius: 16, borderWidth: 1, borderColor: c.border,
     },
-    sectionHint: { fontSize: 12, ...fonts.regular, color: c.textMuted, flex: 1 },
-    actionBtns:  { flexDirection: 'row', gap: 8 },
-    remindBtn:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.successLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: c.success + '44' },
-    remindBtnText: { fontSize: 12, ...fonts.bold, color: '#25D366' },
-    markAllBtn:  { backgroundColor: c.primaryLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-    markAllText: { fontSize: 12, ...fonts.bold, color: c.primaryText },
-    unmarkBtn:   { backgroundColor: c.dangerLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-    unmarkText:  { fontSize: 12, ...fonts.bold, color: c.danger },
-    list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
-    memberRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      backgroundColor: c.card, borderRadius: 12, padding: 14, marginBottom: 10,
-      shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+
+    markBtn: {
+      backgroundColor: c.primary,
+      paddingHorizontal: 14, paddingVertical: 7,
+      borderRadius: 999,
     },
-    memberRowPaid: { backgroundColor: c.successLight },
-    avatar:     { width: 42, height: 42, borderRadius: 21, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' },
-    avatarPaid: { backgroundColor: c.successLight },
-    avatarText: { fontSize: 17, ...fonts.bold, color: c.primaryText },
-    memberInfo:  { flex: 1 },
-    memberName:  { fontSize: 15, ...fonts.bold, color: c.text },
-    memberPhone: { fontSize: 13, ...fonts.regular, color: c.textMuted, marginTop: 2 },
-    paidDate:    { fontSize: 11, ...fonts.medium, color: c.success, marginTop: 2 },
-    waBtnSmall:  { width: 36, height: 36, borderRadius: 10, backgroundColor: c.successLight, alignItems: 'center', justifyContent: 'center' },
-    badgePaid:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.successLight, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
-    badgePaidText: { fontSize: 12, ...fonts.semiBold, color: c.success },
-    readyBanner: {
-      position: 'absolute', bottom: 0, left: 0, right: 0,
-      backgroundColor: c.card, flexDirection: 'row', alignItems: 'center',
-      padding: 16, paddingBottom: 32, borderTopWidth: 1, borderTopColor: c.border, gap: 8,
+    markBtnText: { fontSize: 12.5, ...fonts.semiBold, color: c.bg },
+
+    ctaBar: {
+      paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28,
+      borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.bg,
     },
-    readyText:   { flex: 1, fontSize: 14, ...fonts.semiBold, color: c.success },
-    drawNowBtn:  { backgroundColor: c.primary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
-    drawNowText: { color: '#fff', fontSize: 13, ...fonts.bold },
+
+    sheet: {
+      backgroundColor: c.bg,
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      paddingHorizontal: 20, paddingBottom: 32, paddingTop: 8,
+    },
+    grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: c.divider2, alignSelf: 'center', marginVertical: 10 },
   });
 }
