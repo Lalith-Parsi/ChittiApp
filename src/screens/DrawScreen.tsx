@@ -38,12 +38,16 @@ export default function DrawScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const toast = useToast();
 
+  type Mode = 'lottery' | 'auction' | 'manual';
   const [group, setGroup] = useState<ChittiGroup | null>(null);
-  const [mode, setMode] = useState<'lottery' | 'manual'>('lottery');
+  const [mode, setMode] = useState<Mode>('lottery');
   const [rolling, setRolling] = useState(false);
   const [rollingDisplay, setRollingDisplay] = useState<string>('');
   const [winner, setWinner] = useState<Member | null>(null);
   const [prizeStr, setPrizeStr] = useState('');
+  /** Auction bids: memberId → raw rupee string. Empty string means "did not bid". */
+  const [bids, setBids] = useState<Record<string, string>>({});
+  const [tiedWith, setTiedWith] = useState<Member[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -52,7 +56,8 @@ export default function DrawScreen() {
       if (!g) return;
       setGroup(g);
       const cycle = g.cycles.find(c => c.id === cycleId);
-      if (cycle?.drawType === 'manual' || cycle?.drawType === 'auction') setMode('manual');
+      if (cycle?.drawType === 'manual') setMode('manual');
+      else if (cycle?.drawType === 'auction') setMode('auction');
     });
   }, [groupId, cycleId]);
 
@@ -78,6 +83,48 @@ export default function DrawScreen() {
     dividendPerMember,
     members: group.members.length,
   });
+
+  /* ───────── Auction ───────── */
+  const setBid = (memberId: string, raw: string) => {
+    setBids(prev => ({ ...prev, [memberId]: raw.replace(/\D/g, '') }));
+    // Picking a new bid invalidates the previously-determined winner.
+    if (winner) { setWinner(null); setPrizeStr(''); setTiedWith([]); }
+  };
+  const validBids = Object.entries(bids)
+    .map(([id, s]) => ({ id, amount: parseInt(s, 10) || 0 }))
+    .filter(b => b.amount > 0 && b.amount <= chitValue);
+  const lowestBid = validBids.length ? Math.min(...validBids.map(b => b.amount)) : null;
+  const lowestBidders = lowestBid !== null
+    ? validBids.filter(b => b.amount === lowestBid).map(b => group.members.find(m => m.id === b.id)).filter((m): m is Member => !!m)
+    : [];
+
+  const determineAuctionWinner = () => {
+    if (lowestBid === null) {
+      Alert.alert('No valid bids', 'Enter at least one bid amount to determine a winner.');
+      return;
+    }
+    const discountAtBid = chitValue - lowestBid;
+    if (discountAtBid > maxDiscount) {
+      Alert.alert(
+        'Lowest bid below the cap',
+        `Lowest bid of ₹${fmtINR(lowestBid)} would discount ₹${fmtINR(discountAtBid)} — over the ${Math.round(maxDiscount / chitValue * 100)}% cap (₹${fmtINR(maxDiscount)}). Ask bidders to raise.`,
+      );
+      return;
+    }
+    if (lowestBidders.length === 1) {
+      setWinner(lowestBidders[0]);
+      setPrizeStr(String(lowestBid));
+      setTiedWith([]);
+      toast.success('Winner determined', `${lowestBidders[0].name} · ₹${fmtINR(lowestBid)}`);
+      return;
+    }
+    // Tie — break by random lot among the tied bidders. Per Chit Funds Act 1982 §16.
+    const pick = lowestBidders[Math.floor(Math.random() * lowestBidders.length)];
+    setWinner(pick);
+    setPrizeStr(String(lowestBid));
+    setTiedWith(lowestBidders);
+    toast.info('Tie broken by lot', `${lowestBidders.length} bid ₹${fmtINR(lowestBid)} — picked ${pick.name}`);
+  };
 
   /* ───────── Lottery ───────── */
   const rollLottery = () => {
@@ -128,7 +175,7 @@ export default function DrawScreen() {
           foremanCommission: commission,
           dividendPerMember: finalDividend,
           conducted: true,
-          drawType: (isLottery ? 'lottery' : 'manual') as DrawType,
+          drawType: (isLottery ? 'lottery' : mode === 'auction' ? 'auction' : 'manual') as DrawType,
           date: new Date().toISOString(),
         },
       );
@@ -157,10 +204,17 @@ export default function DrawScreen() {
           <Segmented
             options={[
               { id: 'lottery', label: 'Lottery' },
-              { id: 'manual', label: 'Manual entry' },
+              { id: 'auction', label: 'Auction' },
+              { id: 'manual',  label: 'Manual' },
             ]}
             value={mode}
-            onChange={setMode}
+            onChange={(v) => {
+              setMode(v as Mode);
+              // Reset transient state when switching modes.
+              setWinner(null);
+              setPrizeStr('');
+              setTiedWith([]);
+            }}
           />
         </View>
 
@@ -171,7 +225,7 @@ export default function DrawScreen() {
           <Text style={[{ fontSize: 12.5, color: colors.textMuted }, tnum]}>{prizedCount} already prized</Text>
         </View>
 
-        {mode === 'lottery' ? (
+        {mode === 'lottery' && (
           <LotteryBody
             chitValue={chitValue}
             rolling={rolling}
@@ -179,7 +233,27 @@ export default function DrawScreen() {
             winner={winner}
             onRoll={rollLottery}
           />
-        ) : (
+        )}
+        {mode === 'auction' && (
+          <AuctionBody
+            chitValue={chitValue}
+            commission={commission}
+            maxDiscount={maxDiscount}
+            members={group.members.length}
+            eligible={eligible}
+            bids={bids}
+            setBid={setBid}
+            lowestBid={lowestBid}
+            lowestBidders={lowestBidders}
+            winner={winner}
+            tiedWith={tiedWith}
+            dividendPerMember={dividendPerMember}
+            balanced={balanced}
+            onDetermine={determineAuctionWinner}
+            onClear={() => { setBids({}); setWinner(null); setPrizeStr(''); setTiedWith([]); }}
+          />
+        )}
+        {mode === 'manual' && (
           <ManualBody
             chitValue={chitValue}
             commission={commission}
@@ -199,15 +273,26 @@ export default function DrawScreen() {
 
       <View style={styles.ctaBar}>
         <PrimaryButton
-          label={mode === 'lottery'
-            ? winner ? `Record cycle for ${winner.name}` : 'Draw winner'
-            : 'Conduct draw and record'}
-          disabled={mode === 'lottery'
-            ? rolling || (winner === null)
-            : manualInvalid || rolling}
+          label={
+            mode === 'lottery'
+              ? winner ? `Record cycle for ${winner.name}` : 'Draw winner'
+              : mode === 'auction'
+                ? winner ? `Record · ${winner.name} · ₹${fmtINR(prize)}` : 'Determine winner'
+                : 'Conduct draw and record'
+          }
+          disabled={
+            mode === 'lottery'
+              ? rolling || (winner === null)
+              : mode === 'auction'
+                ? winner ? false : validBids.length === 0
+                : manualInvalid || rolling
+          }
           onPress={() => {
             if (mode === 'lottery') {
               if (!winner) rollLottery();
+              else setConfirming(true);
+            } else if (mode === 'auction') {
+              if (!winner) determineAuctionWinner();
               else setConfirming(true);
             } else {
               setConfirming(true);
@@ -306,6 +391,166 @@ function LotteryBody({ chitValue, rolling, rollingDisplay, winner, onRoll }: {
           </Text>
         </TouchableOpacity>
       )}
+    </View>
+  );
+}
+
+/* ───────────────────────── Auction body ─────────────────────────
+ *
+ * Each eligible member can submit a bid — the amount they'd take as the prize.
+ * Lowest bid wins (the foreman pays them less, leaving more in the pool for
+ * everyone else). Ties are broken by random lot, per Chit Funds Act 1982 §16.
+ */
+
+function AuctionBody({
+  chitValue, commission, maxDiscount, members, eligible,
+  bids, setBid, lowestBid, lowestBidders, winner, tiedWith,
+  dividendPerMember, balanced, onDetermine, onClear,
+}: {
+  chitValue: number;
+  commission: number;
+  maxDiscount: number;
+  members: number;
+  eligible: Member[];
+  bids: Record<string, string>;
+  setBid: (memberId: string, raw: string) => void;
+  lowestBid: number | null;
+  lowestBidders: Member[];
+  winner: Member | null;
+  tiedWith: Member[];
+  dividendPerMember: number;
+  balanced: boolean;
+  onDetermine: () => void;
+  onClear: () => void;
+}) {
+  const { colors } = useTheme();
+  const validBids = Object.values(bids).filter(s => parseInt(s, 10) > 0).length;
+  const discountAtLowest = lowestBid !== null ? chitValue - lowestBid : 0;
+  const overCap = lowestBid !== null && discountAtLowest > maxDiscount;
+  const prize = winner ? parseInt(bids[winner.id], 10) || 0 : 0;
+
+  return (
+    <View style={{ marginTop: 18, gap: 14 }}>
+      {/* Status banner */}
+      <View style={{
+        backgroundColor: winner ? colors.accentLight : colors.card,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: winner ? colors.accent : colors.border,
+        padding: 14,
+      }}>
+        {winner ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Avatar name={winner.name} size={44} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, ...fonts.semiBold, color: colors.accent, letterSpacing: 1 }}>
+                AUCTION WINNER
+              </Text>
+              <Text style={{ marginTop: 2, fontSize: 17, ...fonts.semiBold, color: colors.text }}>
+                {winner.name}
+              </Text>
+              {tiedWith.length > 1 && (
+                <Text style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>
+                  Tied with {tiedWith.length - 1} other{tiedWith.length > 2 ? 's' : ''} — picked by lot
+                </Text>
+              )}
+            </View>
+            <Text style={[{ fontSize: 22, ...fonts.bold, color: colors.text }, tnum]}>
+              ₹{fmtINR(prize)}
+            </Text>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <Text style={[{ fontSize: 12.5, color: colors.textSub }, tnum]}>
+              {validBids} of {eligible.length} bid · lowest{' '}
+              <Text style={{ ...fonts.semiBold, color: colors.text }}>
+                {lowestBid !== null ? `₹${fmtINR(lowestBid)}` : '—'}
+              </Text>
+            </Text>
+            {lowestBid !== null && (
+              <Text style={[{ fontSize: 11.5, color: overCap ? colors.danger : colors.textMuted }, tnum]}>
+                discount {Math.round(discountAtLowest / chitValue * 100)}%{overCap ? ' · over cap' : ''}
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Bid grid */}
+      <Card style={{ paddingHorizontal: 14, paddingVertical: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 6 }}>
+          <Text style={{ fontSize: 11, ...fonts.semiBold, color: colors.textMuted, letterSpacing: 1 }}>
+            BIDS · ELIGIBLE {eligible.length}
+          </Text>
+          {validBids > 0 && !winner && (
+            <TouchableOpacity onPress={onClear}>
+              <Text style={{ fontSize: 12.5, ...fonts.semiBold, color: colors.textSub }}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {eligible.map((m, i) => {
+          const raw = bids[m.id] ?? '';
+          const amt = parseInt(raw, 10) || 0;
+          const isLowest = lowestBid !== null && amt === lowestBid && amt > 0;
+          const isWinner = winner?.id === m.id;
+          return (
+            <View
+              key={m.id}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 12,
+                paddingVertical: 10,
+                borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border,
+              }}
+            >
+              <Avatar name={m.name} size={32} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 14, ...fonts.medium, color: colors.text }} numberOfLines={1}>{m.name}</Text>
+                {(isLowest || isWinner) && (
+                  <Text style={{ fontSize: 10.5, ...fonts.semiBold, color: isWinner ? colors.accent : colors.primary, letterSpacing: 0.5, marginTop: 2 }}>
+                    {isWinner ? 'WINNER' : 'LOWEST'}
+                  </Text>
+                )}
+              </View>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 4,
+                paddingHorizontal: 10, paddingVertical: 6,
+                borderRadius: 10,
+                backgroundColor: isWinner ? colors.accentLight : isLowest ? colors.primaryLight : colors.bg,
+                borderWidth: 1, borderColor: isWinner ? colors.accent : isLowest ? colors.primary : 'transparent',
+                minWidth: 110,
+              }}>
+                <Text style={{ fontSize: 14, color: colors.textMuted }}>₹</Text>
+                <TextInput
+                  style={[{ flex: 1, fontSize: 15, ...fonts.medium, color: colors.text, padding: 0 }, tnum]}
+                  placeholder="0"
+                  placeholderTextColor={colors.textHint}
+                  keyboardType="numeric"
+                  editable={!winner}
+                  value={amt > 0 ? fmtINR(amt) : ''}
+                  onChangeText={(t) => setBid(m.id, t)}
+                />
+              </View>
+            </View>
+          );
+        })}
+      </Card>
+
+      {/* Live invariant — only when a winner exists */}
+      {winner && (
+        <MoneyEquation
+          chitValue={chitValue}
+          prize={prize}
+          foremanCommission={commission}
+          dividendPerMember={dividendPerMember}
+          members={members}
+          balanced={balanced}
+        />
+      )}
+
+      <Text style={{ fontSize: 11.5, color: colors.textMuted, lineHeight: 18, textAlign: 'center' }}>
+        Lowest bid wins — that bidder takes the prize, the rest gets shared.
+        Ties are broken by lot, per the Chit Funds Act 1982 §16.
+      </Text>
     </View>
   );
 }

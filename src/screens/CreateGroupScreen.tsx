@@ -231,8 +231,8 @@ export default function CreateGroupScreen() {
         <Segmented
           options={[
             { id: 'lottery', label: 'Lottery' },
-            { id: 'manual',  label: 'Manual entry' },
-            { id: 'auction', label: 'Auction', disabled: true },
+            { id: 'auction', label: 'Auction' },
+            { id: 'manual',  label: 'Manual' },
           ]}
           value={drawType === 'self-assign' ? 'manual' : drawType}
           onChange={(v) => setDrawType(v as DrawType)}
