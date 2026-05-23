@@ -33,7 +33,14 @@ Every phase below must move the product visibly closer to a real foreman running
   3. Closing and reopening the app does not require re-OTP — session persists via `AsyncStorage` (`AUTH-03`).
   4. A user can sign out from Settings and is returned to the OTP screen (`AUTH-04`).
   5. Firebase project (API key, project ID, sender ID) is read from `app.config.ts` + `expo-constants`; no hardcoded keys in `src/lib/firebase.ts`; dev and prod projects swap by env var (`DATA-04`).
-**Plans**: TBD
+**Plans:** 6 plans
+  - [ ] 01-01-test-infra-PLAN.md — Wave 0: Jest + ESLint + Pitfall-6 lint rule + red test scaffolds
+  - [ ] 01-02-config-and-deps-PLAN.md — Wave 1: install RNFirebase/dev-client/build-properties/libphonenumber; app.config.ts + env-driven firebase.ts (DATA-04)
+  - [ ] 01-03-helpers-phone-money-PLAN.md — Wave 2: src/utils/phone.ts (toE164) + src/utils/money.ts (Paisa); normalize AddMember saves
+  - [ ] 01-04-native-auth-swap-and-eas-PLAN.md — Wave 3: swap AuthContext + LoginScreen to @react-native-firebase/auth; eas.json with 3 profiles (AUTH-03/04 code)
+  - [ ] 01-05-device-verification-PLAN.md — Wave 4: first EAS dev build + physical iOS/Android verification matrix (AUTH-01/02)
+  - [ ] 01-06-hardening-and-rotation-PLAN.md — Wave 5: preview+production EAS builds; rotate leaked API key; STACK.md update
+
 **UI hint**: yes
 
 **Phase-level pitfall guardrails** (from PITFALLS.md, enforced by must-haves in plan):
@@ -154,7 +161,7 @@ Strictly linear by design — every later slice depends on the data model and au
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Native Phone Auth & Env Config | 0/0 | Not started | — |
+| 1. Native Phone Auth & Env Config | 0/6 | Planned | — |
 | 2. Multi-User Data Model & Security | 0/0 | Not started | — |
 | 3. Group Setup & Membership | 0/0 | Not started | — |
 | 4. Cycle Ledger & Payments | 0/0 | Not started | — |
