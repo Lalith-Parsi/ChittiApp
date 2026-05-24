@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth } from './firebase';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { resetDemoData, seedDemoData } from '../storage/demo';
+
+type User = FirebaseAuthTypes.User;
 
 /**
  * Minimal shape of the signed-in user that the rest of the app cares about.
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => {
+    const unsub = auth().onAuthStateChanged(u => {
       setFirebaseUser(u);
       setLoading(false);
     });
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resetDemoData();
     setDemoActive(false);
     // Also sign out of Firebase if there happens to be a real user — keeps state tidy.
-    try { await signOut(auth); } catch { /* not signed in, ignore */ }
+    try { await auth().signOut(); } catch { /* not signed in, ignore */ }
   }, []);
 
   const user: AppUser | null = demoActive

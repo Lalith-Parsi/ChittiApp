@@ -3,14 +3,14 @@
  * (when `__demoMode` from AuthContext is on) or to Firestore using the real
  * user's UID. Screens import from '../storage' and never know which is active.
  */
-import { auth } from '../lib/firebase';
+import auth from '@react-native-firebase/auth';
 import { __demoMode } from '../lib/AuthContext';
 import * as FS from '../lib/firestore';
 import * as Demo from './demo';
 import { ChittiGroup } from '../types';
 
 function uid(): string {
-  const u = auth.currentUser;
+  const u = auth().currentUser;
   if (!u) throw new Error('Not authenticated');
   return u.uid;
 }
