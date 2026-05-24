@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 plan 01-02 (config + deps) complete STUBBED. app.config.ts + env-driven Firebase config landed; RNFirebase + dev-client + build-properties + eas-cli installed; src/lib/firebase.ts rewrites GREEN the DATA-04 unit test. GoogleService-Info.plist + google-services.json committed as TODO-marked STUBS (see 01-02-STUBS.md) — real on-device OTP requires Firebase Console iOS/Android app registration with bundle/package com.chitti.app. Plan 01-04 (native auth swap) can now compile against the new shape.
-last_updated: "2026-05-24T22:00:00.000Z"
+stopped_at: Phase 1 plan 01-04 (native auth swap + eas.json) complete. AuthContext + LoginScreen + storage + HomeScreen + AddMemberScreen now route through '@react-native-firebase/auth'; web-only RecaptchaVerifier + recaptcha-container removed; LoginScreen wires toE164(phoneDisplay,'IN') -> auth().signInWithPhoneNumber(e164); voice-OTP fallback wired via forceResend=true; mapPhoneAuthError helper added; src/lib/firebase.ts TEMP auth export removed (Firestore-only now). eas.json with 3 build profiles landed. AUTH-03/AUTH-04 code-complete; AUTH-01/02 still owe physical-device verification (Plan 01-05). Native files (GoogleService-Info.plist, google-services.json) remain stubbed — Plan 05 owns the Firebase Console registration + replacement.
+last_updated: "2026-05-24T23:30:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
-  percent: 8
+  completed_plans: 4
+  percent: 11
 ---
 
 # STATE — ChittiApp
@@ -25,11 +25,11 @@ See: `.planning/PROJECT.md` (updated 2026-05-22)
 ## Current Position
 
 Phase: 01 (native-phone-auth-env-config) — EXECUTING
-Plan: 4 of 6 (plans 01-01 test-infra + 01-02 config-and-deps [STUBBED] + 01-03 helpers-phone-money complete 2026-05-24; 01-04 native-auth-swap next)
+Plan: 5 of 6 (plans 01-01 test-infra + 01-02 config-and-deps [STUBBED] + 01-03 helpers-phone-money + 01-04 native-auth-swap-and-eas complete 2026-05-24; 01-05 device-verification next)
 **Workflow:** active project, executing
-**Stage:** Phase 1 — Native Phone Auth & Env Config (3 of 6 plans complete)
+**Stage:** Phase 1 — Native Phone Auth & Env Config (4 of 6 plans complete)
 **Phase:** 1 of 6
-**Plan:** next — 01-04-native-auth-swap-and-eas-PLAN.md
+**Plan:** next — 01-05-device-verification-PLAN.md
 
 ## Progress
 
@@ -64,7 +64,9 @@ This session redesigned and re-implemented the entire mobile UI from a Claude De
 
 | Req | Status | Where |
 |---|---|---|
-| **AUTH-01..04** | UI only — web RecaptchaVerifier still in place | `src/screens/LoginScreen.tsx` |
+| **AUTH-01..02** | Code complete on RNFirebase native; **physical-device verification owed to plan 01-05** | `src/screens/LoginScreen.tsx`, `src/lib/AuthContext.tsx` |
+| **AUTH-03** | ✓ Code complete (plan 01-04, 2026-05-24) — RNFirebase native session persistence (iOS Keychain / Android SharedPreferences) automatic; no AsyncStorage wiring needed | `src/lib/AuthContext.tsx` |
+| **AUTH-04** | ✓ Code complete (plan 01-04, 2026-05-24) — auth().signOut() in HomeScreen + AuthContext.leaveDemoMode; onAuthStateChanged emits null user (tests/auth-context.test.ts GREEN) | `src/lib/AuthContext.tsx`, `src/screens/HomeScreen.tsx` |
 | **DATA-04** | ✓ Done (plan 01-02, 2026-05-24) — firebase.ts reads Constants.expoConfig.extra.firebase; loud-throw on missing keys | `src/lib/firebase.ts`, `app.config.ts`, `.env.example` |
 | **GROUP-01** | UI shipped, single-user only | `src/screens/CreateGroupScreen.tsx` |
 | **GROUP-02..05, HOME-01..02** | UI shipped, single-user only | `src/screens/GroupDetailScreen.tsx`, `HomeScreen.tsx`, `AddMemberScreen.tsx` |
@@ -115,6 +117,8 @@ New decisions from this session:
 
 - **2026-05-22:** UI implementation jumped ahead of phase plans because the design handoff arrived early. Each phase's plan should focus on data/backend work + on-device testing; the UI is largely in place but is rendering against single-user data and will need re-wiring as the multi-user model lands.
 - **2026-05-22:** Demo mode shipped as a permanent feature (not a temporary preview hack) — gives non-signed-in stakeholders a way to inspect the product without Firebase setup, and gives App Reviewers a way to evaluate without an Indian SMS-able phone.
+- **2026-05-24 (plan 01-04):** Voice-OTP fallback ("Call me instead" button) wired to `auth().signInWithPhoneNumber(e164, true /*forceResend*/)` rather than a separate `verifyPhoneNumber` + `PhoneAuthProvider` flow. Firebase's native escalation policy auto-falls back to voice on the second OTP request for the same number, so the existing `ConfirmationResult` state machine works unchanged. Pitfall 8 mitigated for India SMS deliverability.
+- **2026-05-24 (plan 01-04):** Rule-3 deviation — HomeScreen + AddMemberScreen still imported the removed JS-SDK `auth` from `../lib/firebase`. Auto-swapped both to RNFirebase default import; same logical behavior, native runtime.
 - **2026-05-24 (plan 01-03):** `isValidIndianMobile` enforces the TRAI 6-9-prefix rule authoritatively over libphonenumber-js `/min` metadata (which is too permissive — accepts leading 5 for carrier sub-routes). Documented as a Rule-1 deviation in 01-03 SUMMARY.
 - **2026-05-24 (plan 01-03):** Member.phone is stored as raw E.164 (`+919876543210`); the `+91 98765 43210` display style is reconstructed at render time via `formatNational(e164)`. Pre-Phase-1 records that already hold the space-formatted string stay unchanged — Pitfall D back-compat requires future phone-keyed lookups to normalize on read.
 - **2026-05-24 (plan 01-02):** STUBBED execution — user chose to ship code-structure changes (deps + app.config.ts + env config + firebase.ts rewrite) while deferring real `GoogleService-Info.plist` / `google-services.json` to a later session. Stubs are committed with TODO-REPLACE markers so app.config.ts path references resolve; bundle id locked to `com.chitti.app` on both platforms; api-key rotation still owed per below.
@@ -145,7 +149,7 @@ From `.planning/config.json`:
 
 - **(Plan 01-02 follow-up, ahead of 01-05 device verification)** Register iOS app + Android app in Firebase Console for project `chitti-app-edfb1` with bundle/package `com.chitti.app`; download real `GoogleService-Info.plist` + `google-services.json`; overwrite the committed stubs; uncomment the two lines in `.gitignore`; `git rm` the stubs; migrate to EAS file-type secrets (`GOOGLE_SERVICES_JSON`, `GOOGLE_SERVICE_INFO_PLIST`). See `.planning/phases/01-native-phone-auth-env-config/01-02-STUBS.md`.
 - **(Plan 01-02 follow-up)** Ensure Phone sign-in method is **Enabled** in Firebase Console → Authentication → Sign-in method.
-- Run `/gsd-execute-plan 01-04` to swap AuthContext + LoginScreen to `@react-native-firebase/auth`, add `eas.json`.
+- Run `/gsd-execute-plan 01-05` to take the first `eas build --profile development` per platform and verify on physical iOS + Android (AUTH-01/02 gates).
 - Decide `@react-native-firebase/auth` vs Firebase JS SDK + Cloud Function during Phase 1 planning — **decided in plan 01-02 / 01-04: RNFirebase native**. Record in `.planning/codebase/STACK.md` when 01-04 lands.
 - Hardcoded Firebase Web API key is now public on GitHub (was in initial commit too, so net-no-change). Rotate in Phase 6 STORE-04 when provisioning the clean production Firebase project.
 
@@ -156,9 +160,9 @@ From `.planning/config.json`:
 
 ## Session Continuity
 
-**Last session:** 2026-05-24 — Executed Phase 1 Plan 01-02 (config + deps) STUBBED. Installed @react-native-firebase/{app,auth}@^24 + expo-dev-client + expo-build-properties + eas-cli. Created app.config.ts (single Expo config source — app.json deleted) with RNFirebase plugins + forceStaticLinking=['RNFBApp','RNFBAuth'] + bundle id/package com.chitti.app + extra.firebase from EXPO_PUBLIC_FIREBASE_*. Added .env (gitignored) + .env.example (committed). Rewrote src/lib/firebase.ts with readConfig() + loud-throw on missing config (DATA-04 GREEN). Committed stub GoogleService-Info.plist + google-services.json with TODO REPLACE markers (see 01-02-STUBS.md). Jest moduleNameMapper added for the firebase/* ESM ESM crash (Rule-3 deviation).
-**Stopped at:** Completed `01-02-config-and-deps-PLAN.md` (STUBBED). Plan 01-04 (native auth swap) next. Plans 01-05 + 01-06 (device verification + hardening) depend on real Firebase Console iOS/Android app registration.
-**Resume file:** `.planning/phases/01-native-phone-auth-env-config/01-04-native-auth-swap-and-eas-PLAN.md`
+**Last session:** 2026-05-24 — Executed Phase 1 Plan 01-04 (native auth swap + eas.json). Created eas.json with development/preview/production profiles (dev-client APK + release APK + app-bundle, EXPO_PUBLIC_FIREBASE_* env passthrough). Swapped AuthContext + src/storage/index.ts + LoginScreen + HomeScreen + AddMemberScreen from 'firebase/auth' + '../lib/firebase' to '@react-native-firebase/auth' default import (auth() singleton accessor). LoginScreen now: toE164(phoneDisplay,'IN') -> auth().signInWithPhoneNumber(e164); confirmation.confirm(code) unchanged in shape; mapPhoneAuthError helper added; voice-OTP fallback wired ('Call me instead' -> forceResend=true). Removed RecaptchaVerifier, recaptcha-container View, (window as any).recaptchaVerifier, and '+91${digits}' template literal (Pitfall 6 lint flag cleared). Removed TEMP auth export from src/lib/firebase.ts (file now only owns Firestore JS-SDK init). All 4 test suites GREEN (auth-context.test.ts flipped RED -> GREEN); tsc --noEmit --types jest exits 0; lint on all 6 modified files exits 0.
+**Stopped at:** Completed `01-04-native-auth-swap-and-eas-PLAN.md`. Plan 01-05 (device verification — first EAS dev build per platform, physical iOS/Android OTP gates) next. Plans 01-05 + 01-06 still depend on real Firebase Console iOS/Android app registration (still owed; native config files remain TODO-stubs per 01-02-STUBS.md).
+**Resume file:** `.planning/phases/01-native-phone-auth-env-config/01-05-device-verification-PLAN.md`
 
 ---
-*Last updated: 2026-05-24 after plan 01-02 (config + deps, STUBBED)*
+*Last updated: 2026-05-24 after plan 01-04 (native auth swap + eas.json)*

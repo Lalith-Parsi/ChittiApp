@@ -12,8 +12,8 @@ Categories derive from `.planning/research/FEATURES.md`; IDs cross-reference `TS
 
 - [ ] **AUTH-01**: Subscriber can sign in with phone number via OTP on a physical iOS device *(TS-1)*
 - [ ] **AUTH-02**: Subscriber can sign in with phone number via OTP on a physical Android device *(TS-1)*
-- [ ] **AUTH-03**: Session persists across app restart (no re-OTP unless signed out)
-- [ ] **AUTH-04**: Subscriber can sign out and return to the OTP screen
+- [x] **AUTH-03**: Session persists across app restart (no re-OTP unless signed out) *(code-complete plan 01-04 — RNFirebase native persistence automatic; hardware verification owed to plan 01-05)*
+- [x] **AUTH-04**: Subscriber can sign out and return to the OTP screen *(code-complete plan 01-04 — auth().signOut() in HomeScreen + leaveDemoMode; tests/auth-context.test.ts GREEN; hardware verification owed to plan 01-05)*
 
 ### Data Model & Backend
 
@@ -155,8 +155,8 @@ Every v1 requirement is mapped to exactly one roadmap phase. See `.planning/ROAD
 |-------------|-------|--------|
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Code-complete (plan 01-04, 2026-05-24); device verification owed to plan 01-05 |
+| AUTH-04 | Phase 1 | Code-complete (plan 01-04, 2026-05-24); device verification owed to plan 01-05 |
 | DATA-01 | Phase 2 | Pending |
 | DATA-02 | Phase 2 | Pending |
 | DATA-03 | Phase 2 | Pending |
