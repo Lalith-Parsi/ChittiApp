@@ -20,6 +20,7 @@ import { getGroupById, upsertGroup } from '../storage';
 import { saveMemberToken } from '../lib/firestore';
 import { auth } from '../lib/firebase';
 import { initializeCycles, syncCyclePayments } from '../utils/chitti';
+import { toE164, formatNational } from '../utils/phone';
 import { RootStackParamList } from '../navigation/types';
 import { useToast } from '../lib/ToastContext';
 import { useTheme } from '../lib/ThemeContext';
@@ -60,15 +61,25 @@ export default function AddMemberScreen() {
       Alert.alert('Invalid phone', 'Enter a 10-digit mobile number starting with 6-9.');
       return;
     }
+    // Pitfall 6: every new Member.phone is canonicalized to E.164 here, before
+    // it ever reaches storage. Pitfall D back-compat: pre-Phase-1 Member records
+    // may still have space-formatted phones in Firestore; future phone-keyed
+    // lookups must run those reads through toE164() too.
+    const e164 = toE164(phoneDisplay, 'IN');
+    if (!e164) {
+      Alert.alert('Invalid phone', 'Enter a 10-digit mobile number starting with 6-9.');
+      return;
+    }
     setSaving(true);
     try {
       const group = await getGroupById(groupId);
       if (!group) return;
 
+      const displayPhone = formatNational(e164); // '+91 98765 43210' for the UI
       const newMember: Member = {
         id: uuid(),
-        name: name.trim() || `+91 ${digits}`,
-        phone: `+91 ${formatPhone(digits)}`,
+        name: name.trim() || displayPhone,
+        phone: e164,
         hasReceived: false,
         joinedAt: new Date().toISOString(),
         shareToken: uuid(),
