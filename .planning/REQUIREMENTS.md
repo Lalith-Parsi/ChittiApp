@@ -20,7 +20,7 @@ Categories derive from `.planning/research/FEATURES.md`; IDs cross-reference `TS
 - [ ] **DATA-01**: A chit group is a top-level Firestore document accessible to every member from their own account (replaces single-owner `users/{uid}/groups/*` subtree) *(TS-4)*
 - [ ] **DATA-02**: Cycles and payments are stored as subcollections under their group (no whole-document writes for cycle / payment mutations) *(TS-6, addresses ARCHITECTURE anti-pattern)*
 - [ ] **DATA-03**: Firestore security rules in repo enforce: members read only groups they belong to; only the foreman writes group / cycle / payment data for their own groups *(TS-15)*
-- [ ] **DATA-04**: Firebase config is supplied via `app.config.ts` + `expo-constants` from environment variables (no hardcoded keys in `src/lib/firebase.ts`) *(TS-16)*
+- [x] **DATA-04**: Firebase config is supplied via `app.config.ts` + `expo-constants` from environment variables (no hardcoded keys in `src/lib/firebase.ts`) *(TS-16)* — _closed by plan 01-02 (2026-05-24); runtime stubs documented in 01-02-STUBS.md_
 - [ ] **DATA-05**: Migration plan / script converts any existing per-user prototype groups into the new top-level structure (one-time, documented)
 
 ### Group Setup
@@ -160,7 +160,7 @@ Every v1 requirement is mapped to exactly one roadmap phase. See `.planning/ROAD
 | DATA-01 | Phase 2 | Pending |
 | DATA-02 | Phase 2 | Pending |
 | DATA-03 | Phase 2 | Pending |
-| DATA-04 | Phase 1 | Pending |
+| DATA-04 | Phase 1 | Done (plan 01-02, 2026-05-24) |
 | DATA-05 | Phase 2 | Pending |
 | GROUP-01 | Phase 3 | Pending |
 | GROUP-02 | Phase 3 | Pending |
