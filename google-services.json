@@ -1,0 +1,28 @@
+{
+  "_TODO_REPLACE_BEFORE_DEVICE_TESTING": "Download real google-services.json from Firebase Console → project chitti-app-edfb1 → ⚙ → Your apps → Android (register with package com.chitti.app if not already done).",
+  "project_info": {
+    "project_number": "447142533670",
+    "project_id": "chitti-app-edfb1",
+    "storage_bucket": "chitti-app-edfb1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:447142533670:android:TODOREPLACEANDROIDAPPID",
+        "android_client_info": {
+          "package_name": "com.chitti.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        { "current_key": "AIzaSyAoiSLbntckQuqepwHGzJ-xHCQVN6NLh_I" }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

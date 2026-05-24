@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- STUB FILE — TODO REPLACE BEFORE REAL-DEVICE TESTING.
+     Download the real GoogleService-Info.plist from Firebase Console:
+     console.firebase.google.com → project chitti-app-edfb1 → ⚙ → Your apps → iOS app
+     (Register iOS app with bundle ID com.chitti.app if not already registered.) -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>API_KEY</key>
+    <string>AIzaSyAoiSLbntckQuqepwHGzJ-xHCQVN6NLh_I</string>
+    <key>BUNDLE_ID</key>
+    <string>com.chitti.app</string>
+    <key>GCM_SENDER_ID</key>
+    <string>447142533670</string>
+    <key>GOOGLE_APP_ID</key>
+    <string>TODO-REPLACE-IOS-APP-ID</string>
+    <key>PROJECT_ID</key>
+    <string>chitti-app-edfb1</string>
+    <key>STORAGE_BUCKET</key>
+    <string>chitti-app-edfb1.firebasestorage.app</string>
+    <key>IS_ADS_ENABLED</key>
+    <false/>
+    <key>IS_ANALYTICS_ENABLED</key>
+    <false/>
+    <key>IS_APPINVITE_ENABLED</key>
+    <true/>
+    <key>IS_GCM_ENABLED</key>
+    <true/>
+    <key>IS_SIGNIN_ENABLED</key>
+    <true/>
+    <key>PLIST_VERSION</key>
+    <string>1</string>
+    <key>CLIENT_ID</key>
+    <string>TODO-REPLACE-IOS-CLIENT-ID</string>
+    <key>REVERSED_CLIENT_ID</key>
+    <string>TODO-REPLACE-IOS-REVERSED-CLIENT-ID</string>
+</dict>
+</plist>

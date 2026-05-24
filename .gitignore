@@ -32,6 +32,15 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+!.env.example
+
+# Firebase native config — NOTE: plan 01-02 committed STUB versions of these
+# files (with TODO REPLACE markers). Once real ones are downloaded from
+# Firebase Console, a follow-up plan should add them here and remove the
+# tracked stubs. See .planning/phases/01-native-phone-auth-env-config/01-02-STUBS.md
+# google-services.json
+# GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo
