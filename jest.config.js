@@ -10,4 +10,14 @@ module.exports = {
   ],
   setupFiles: [],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  // Force the Firebase JS SDK and its @firebase/* sub-packages to resolve to
+  // their CommonJS builds in the Jest environment. Without this, jest-expo
+  // resolves the `module`/`browser` field to dist/esm/*.esm.js whose untransformed
+  // `export` syntax crashes Node before babel-preset-expo can transpile it
+  // (plan 01-02 Rule-3 deviation — unblocks tests/firebase-config.test.ts).
+  moduleNameMapper: {
+    '^firebase/app$': '<rootDir>/tests/__mocks__/firebase-stub.js',
+    '^firebase/auth$': '<rootDir>/tests/__mocks__/firebase-stub.js',
+    '^firebase/firestore$': '<rootDir>/tests/__mocks__/firebase-stub.js',
+  },
 };
