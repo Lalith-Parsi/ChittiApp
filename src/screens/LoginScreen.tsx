@@ -9,15 +9,34 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult,
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { toE164 } from '../utils/phone';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { ThemeColors, fonts, tnum } from '../lib/theme';
+
+type ConfirmationResult = FirebaseAuthTypes.ConfirmationResult;
+
+/**
+ * Map RNFirebase phone-auth error codes to short, user-facing strings.
+ * See RESEARCH.md §9 — the rendered toast/banner string is the codomain;
+ * the existing UI doesn't expose a state-enum slot for these, so we set
+ * the inline `error` field directly.
+ */
+function mapPhoneAuthError(e: unknown): string {
+  const code = (e as { code?: string })?.code ?? '';
+  switch (code) {
+    case 'auth/invalid-phone-number':       return "That number doesn't look right.";
+    case 'auth/too-many-requests':          return 'Too many tries. Wait a bit and try again.';
+    case 'auth/quota-exceeded':             return 'Too many tries today. Try tomorrow.';
+    case 'auth/invalid-verification-code':  return "That code didn't match. Try again or resend.";
+    case 'auth/code-expired':               return 'Code expired. Tap Resend.';
+    case 'auth/session-expired':            return 'Code expired. Tap Resend.';
+    case 'auth/network-request-failed':     return 'No network. Check your connection.';
+    case 'auth/missing-phone-number':       return 'Enter your phone number first.';
+    default:                                return "Couldn't verify. Try again.";
+  }
+}
 
 type Step = 'phone' | 'otp';
 
@@ -82,20 +101,46 @@ export default function LoginScreen() {
     }
     setLoading(true); setError('');
     try {
-      const fullPhone = `+91${digits}`;
-      // NOTE: RecaptchaVerifier is web-only. Phase 1 of the roadmap replaces
-      // this with native Firebase Phone Auth on iOS + Android.
-      const w = window as unknown as { recaptchaVerifier?: RecaptchaVerifier };
-      if (!w.recaptchaVerifier) {
-        w.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+      const e164 = toE164(phoneDisplay, 'IN');
+      if (!e164) {
+        setError("That number doesn't look right.");
+        return;
       }
-      const result = await signInWithPhoneNumber(auth, fullPhone, w.recaptchaVerifier);
+      // Native phone-OTP. RNFirebase calls the platform Firebase SDK; no
+      // web reCAPTCHA verifier and no '+91' string-building (Pitfall 6 —
+      // the single E.164 writer is toE164 from src/utils/phone.ts).
+      const result: ConfirmationResult = await auth().signInWithPhoneNumber(e164);
       setConfirmation(result);
       setStep('otp');
       setSecondsLeft(42);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to send OTP';
-      setError(msg);
+      setError(mapPhoneAuthError(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Voice-OTP fallback (Pitfall 8). For India deliverability when SMS doesn't
+   * arrive on Jio/BSNL, re-issue via signInWithPhoneNumber with `forceResend`.
+   * RNFirebase will auto-fall-back to voice on the second attempt for the same
+   * number, per Firebase's built-in escalation policy. If a previous
+   * ConfirmationResult exists we discard it — the new one supersedes.
+   */
+  const requestVoiceOTP = async () => {
+    if (!isPhoneValid) return;
+    setLoading(true); setError('');
+    try {
+      const e164 = toE164(phoneDisplay, 'IN');
+      if (!e164) {
+        setError("That number doesn't look right.");
+        return;
+      }
+      const result: ConfirmationResult = await auth().signInWithPhoneNumber(e164, true);
+      setConfirmation(result);
+      setSecondsLeft(42);
+    } catch (e: unknown) {
+      setError(mapPhoneAuthError(e));
     } finally {
       setLoading(false);
     }
@@ -106,9 +151,12 @@ export default function LoginScreen() {
     if (code.length !== 6) return;
     setLoading(true); setError('');
     try {
+      // confirmation.confirm() resolves with the signed-in user; the
+      // onAuthStateChanged listener in AuthContext picks it up and the
+      // navigator unmounts this screen.
       await confirmation.confirm(code);
-    } catch {
-      setError("That code didn't match. Try again or resend.");
+    } catch (e: unknown) {
+      setError(mapPhoneAuthError(e));
       setOtp('');
       otpRefs.current[0]?.focus();
     } finally {
@@ -195,8 +243,6 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* RecaptchaVerifier mounts here (web only). Phase 1 removes this entirely. */}
-          <View nativeID="recaptcha-container" />
         </View>
       </KeyboardAvoidingView>
     );
@@ -284,7 +330,7 @@ export default function LoginScreen() {
                 <Text style={styles.otpResendLink}>Resend</Text>
               </TouchableOpacity>
               <Text style={styles.otpResendDot}> · </Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={requestVoiceOTP}>
                 <Text style={styles.otpResendLink}>Call me instead</Text>
               </TouchableOpacity>
             </View>

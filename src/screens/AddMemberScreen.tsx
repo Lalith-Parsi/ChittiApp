@@ -18,7 +18,7 @@ import { v4 as uuid } from 'uuid';
 import { Member } from '../types';
 import { getGroupById, upsertGroup } from '../storage';
 import { saveMemberToken } from '../lib/firestore';
-import { auth } from '../lib/firebase';
+import auth from '@react-native-firebase/auth';
 import { initializeCycles, syncCyclePayments } from '../utils/chitti';
 import { toE164, formatNational } from '../utils/phone';
 import { RootStackParamList } from '../navigation/types';
@@ -85,7 +85,7 @@ export default function AddMemberScreen() {
         shareToken: uuid(),
       };
 
-      const uid = auth.currentUser?.uid;
+      const uid = auth().currentUser?.uid;
       if (uid && newMember.shareToken) {
         await saveMemberToken(newMember.shareToken, uid, group.id, newMember.id);
       }

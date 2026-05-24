@@ -2,8 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, StatusBar, Alert, Modal } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { signOut } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import auth from '@react-native-firebase/auth';
 import { useAuth } from '../lib/AuthContext';
 import { ChittiGroup } from '../types';
 import { getGroups, deleteGroup } from '../storage';
@@ -69,7 +68,7 @@ export default function HomeScreen() {
     }
     Alert.alert('Sign out?', 'You can sign back in with the same phone number.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut(auth).catch(() => {}) },
+      { text: 'Sign out', style: 'destructive', onPress: () => auth().signOut().catch(() => {}) },
     ]);
   };
 
