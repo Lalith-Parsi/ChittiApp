@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+stopped_at: Phase 1 plan 01-01 (test infra) complete. Jest + ESLint wired, 4 RED test scaffolds in place, Pitfall-6 lint rule flagging LoginScreen.tsx line 85. Next plan 01-02 (config + deps).
+last_updated: "2026-05-24T19:00:00.000Z"
+progress:
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 1
+  percent: 3
+---
+
 # STATE — ChittiApp
 
 ## Project Reference
@@ -5,10 +20,12 @@
 See: `.planning/PROJECT.md` (updated 2026-05-22)
 
 **Core value:** A foreman can run a real Act-1982-compliant chit end-to-end on phones — every subscriber sees their own ledger from their own device — with no spreadsheet, WhatsApp thread, or math errors.
-**Current focus:** Phase 1 planning. Auth UI is built; the backend swap-out (native OTP + env-driven Firebase config) is the remaining Phase 1 work.
+**Current focus:** Phase 01 — native-phone-auth-env-config
 
 ## Current Position
 
+Phase: 01 (native-phone-auth-env-config) — EXECUTING
+Plan: 2 of 6 (plan 01-01 test-infra complete 2026-05-24)
 **Workflow:** active project, ready to plan
 **Stage:** Phase 1 — Native Phone Auth & Env Config (planning not started)
 **Phase:** 1 of 6

@@ -34,7 +34,7 @@ Every phase below must move the product visibly closer to a real foreman running
   4. A user can sign out from Settings and is returned to the OTP screen (`AUTH-04`).
   5. Firebase project (API key, project ID, sender ID) is read from `app.config.ts` + `expo-constants`; no hardcoded keys in `src/lib/firebase.ts`; dev and prod projects swap by env var (`DATA-04`).
 **Plans:** 6 plans
-  - [ ] 01-01-test-infra-PLAN.md — Wave 0: Jest + ESLint + Pitfall-6 lint rule + red test scaffolds
+  - [x] 01-01-test-infra-PLAN.md — Wave 0: Jest + ESLint + Pitfall-6 lint rule + red test scaffolds *(completed 2026-05-24, see 01-01-test-infra-SUMMARY.md)*
   - [ ] 01-02-config-and-deps-PLAN.md — Wave 1: install RNFirebase/dev-client/build-properties/libphonenumber; app.config.ts + env-driven firebase.ts (DATA-04)
   - [ ] 01-03-helpers-phone-money-PLAN.md — Wave 2: src/utils/phone.ts (toE164) + src/utils/money.ts (Paisa); normalize AddMember saves
   - [ ] 01-04-native-auth-swap-and-eas-PLAN.md — Wave 3: swap AuthContext + LoginScreen to @react-native-firebase/auth; eas.json with 3 profiles (AUTH-03/04 code)
