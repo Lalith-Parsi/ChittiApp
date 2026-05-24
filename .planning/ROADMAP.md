@@ -36,7 +36,7 @@ Every phase below must move the product visibly closer to a real foreman running
 **Plans:** 6 plans
   - [x] 01-01-test-infra-PLAN.md — Wave 0: Jest + ESLint + Pitfall-6 lint rule + red test scaffolds *(completed 2026-05-24, see 01-01-test-infra-SUMMARY.md)*
   - [ ] 01-02-config-and-deps-PLAN.md — Wave 1: install RNFirebase/dev-client/build-properties/libphonenumber; app.config.ts + env-driven firebase.ts (DATA-04)
-  - [ ] 01-03-helpers-phone-money-PLAN.md — Wave 2: src/utils/phone.ts (toE164) + src/utils/money.ts (Paisa); normalize AddMember saves
+  - [x] 01-03-helpers-phone-money-PLAN.md — Wave 2: src/utils/phone.ts (toE164) + src/utils/money.ts (Paisa); normalize AddMember saves *(completed 2026-05-24, see 01-03-helpers-phone-money-SUMMARY.md)*
   - [ ] 01-04-native-auth-swap-and-eas-PLAN.md — Wave 3: swap AuthContext + LoginScreen to @react-native-firebase/auth; eas.json with 3 profiles (AUTH-03/04 code)
   - [ ] 01-05-device-verification-PLAN.md — Wave 4: first EAS dev build + physical iOS/Android verification matrix (AUTH-01/02)
   - [ ] 01-06-hardening-and-rotation-PLAN.md — Wave 5: preview+production EAS builds; rotate leaked API key; STACK.md update

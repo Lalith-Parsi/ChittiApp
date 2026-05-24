@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 1 plan 01-01 (test infra) complete. Jest + ESLint wired, 4 RED test scaffolds in place, Pitfall-6 lint rule flagging LoginScreen.tsx line 85. Next plan 01-02 (config + deps).
-last_updated: "2026-05-24T19:00:00.000Z"
+stopped_at: Phase 1 plan 01-03 (helpers — phone + money) complete. toE164 and Paisa helpers landed with 21 GREEN tests; AddMemberScreen writes E.164 Member.phone. Plans 01-02 (config + deps) and 01-04 (native auth swap) still pending. Note plans were taken out of dependency order — 01-03 has no hard runtime dep on 01-02 because libphonenumber-js is independent of the firebase config rewrite.
+last_updated: "2026-05-24T20:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 1
-  percent: 3
+  completed_plans: 2
+  percent: 6
 ---
 
 # STATE — ChittiApp
@@ -25,7 +25,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-22)
 ## Current Position
 
 Phase: 01 (native-phone-auth-env-config) — EXECUTING
-Plan: 2 of 6 (plan 01-01 test-infra complete 2026-05-24)
+Plan: 3 of 6 (plans 01-01 test-infra + 01-03 helpers-phone-money complete 2026-05-24; 01-02 config-and-deps still owed)
 **Workflow:** active project, ready to plan
 **Stage:** Phase 1 — Native Phone Auth & Env Config (planning not started)
 **Phase:** 1 of 6
@@ -115,6 +115,8 @@ New decisions from this session:
 
 - **2026-05-22:** UI implementation jumped ahead of phase plans because the design handoff arrived early. Each phase's plan should focus on data/backend work + on-device testing; the UI is largely in place but is rendering against single-user data and will need re-wiring as the multi-user model lands.
 - **2026-05-22:** Demo mode shipped as a permanent feature (not a temporary preview hack) — gives non-signed-in stakeholders a way to inspect the product without Firebase setup, and gives App Reviewers a way to evaluate without an Indian SMS-able phone.
+- **2026-05-24 (plan 01-03):** `isValidIndianMobile` enforces the TRAI 6-9-prefix rule authoritatively over libphonenumber-js `/min` metadata (which is too permissive — accepts leading 5 for carrier sub-routes). Documented as a Rule-1 deviation in 01-03 SUMMARY.
+- **2026-05-24 (plan 01-03):** Member.phone is stored as raw E.164 (`+919876543210`); the `+91 98765 43210` display style is reconstructed at render time via `formatNational(e164)`. Pre-Phase-1 records that already hold the space-formatted string stay unchanged — Pitfall D back-compat requires future phone-keyed lookups to normalize on read.
 
 ## Workflow Config
 
@@ -150,9 +152,9 @@ From `.planning/config.json`:
 
 ## Session Continuity
 
-**Last session:** 2026-05-22 — Implemented all 10 designed screens, fixed the cycle math + invariant ahead of schedule, added demo mode + toasts + auction draw, pushed 14 commits to `Lalith-Parsi/ChittiApp main` via `kbreddiee` collaborator access.
-**Stopped at:** Ready to plan Phase 1. UI is done; remaining work is the auth backend swap + env config.
+**Last session:** 2026-05-24 — Executed Phase 1 Plan 01-03 (helpers): added `src/utils/phone.ts` (toE164, isValidIndianMobile, formatNational) and `src/utils/money.ts` (Paisa branded integer + helpers); wired toE164 into AddMemberScreen so new Member.phone records save as E.164. 21 unit tests GREEN (10 phone + 11 money). Lint clean. No migration of existing money fields (CONTEXT.md compliance verified).
+**Stopped at:** Completed `01-03-helpers-phone-money-PLAN.md`. Plans 01-02 (config + deps) and 01-04 (native auth swap) remain.
 **Resume file:** —
 
 ---
-*Last updated: 2026-05-22 after session that shipped UI + demo mode + auction draw*
+*Last updated: 2026-05-24 after plan 01-03 (phone + money helpers)*
