@@ -155,6 +155,19 @@ interface AuditEvent {
 - Demo mode is the **only** path that works on the web target until eventually we drop web; Phase 2 must not break it.
 - The "Switch view" toggle on GroupDetail (foreman ↔ member) added in the prior session is visual-only today; Phase 2 makes it real for non-demo users (the toggle isn't shown in demo since you ARE the foreman of demo chits).
 
+### Additional decisions resolved during planning (2026-05-28) [LOCKED]
+
+These four were flagged by the researcher as open questions and locked here after planning began, before plan-checker review:
+
+5. **Soft-delete only.** "Delete chit" sets `isActive: false` + `deletedAt: ServerTimestamp` on the group doc. The audit log subcollection is preserved (a hard-delete would orphan it). Hidden from "My Chits" home; data still retrievable for dispute resolution. Hard delete is deferred until we have a real reason to need it.
+6. **`memberTokens/*` public deep-link (LINK-01 from REQUIREMENTS.md) is dropped.** `MemberPublicViewScreen.tsx` is deleted from `src/screens/`. The `chitti://member/:token` route is removed from the navigator. `getGroupByMemberToken` + `saveMemberToken` in `src/lib/firestore.ts` are deleted. The legacy `memberTokens/*` Firestore collection is left in place (no production data; can be reaped later). Reason: phone-claim flow replaces the use case (a member added by phone signs in and sees the chit directly — no token-based bypass needed).
+7. **Demo mode skips audit log writes.** `appendAudit()` is a no-op when `__demoMode` is true. The in-memory demo store reshapes to match the new schema but does not write to a demo audit subcollection. Reason: demo is preview-only; an audit trail there is theatre, not value. Optional 3-4 synthetic events for preview fidelity is deferred.
+8. **Foreman cycle-correction permissions stay permissive in Phase 2.** A foreman can edit / unmark / re-conduct any cycle in their group, including conducted ones. Phase 5 (future, not the deferred Phase 1 plan 5) can tighten with "corrections require a reason note" UX layer. Reason: prematurely strict rules force schema rework when the UX adds nuance later.
+
+### Known risks (carried into execution)
+
+- **Plan 02 (`02-02-types-storage-audit-and-screen-rewires`) is over-scoped:** 19 files modified, 9 screens rewired, 2 files deleted in 3 tasks. Plan-checker flagged this. Accepting the risk for execution speed; if the executor agent gets bogged down, split mid-flight into (a) data layer, (b) screen rewires, (c) LINK-01 cleanup.
+
 ### Claude's Discretion
 
 - Composite index definition file shape (`firestore.indexes.json`) — let the planner derive.
