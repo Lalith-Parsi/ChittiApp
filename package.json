@@ -23,7 +23,6 @@
     "expo-font": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "expo-web-browser": "^56.0.5",
-    "firebase": "^12.13.0",
     "libphonenumber-js": "^1.13.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",

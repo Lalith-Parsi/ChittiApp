@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         ios: {
           useFrameworks: 'static',
-          forceStaticLinking: ['RNFBApp', 'RNFBAuth'],
+          forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBMessaging'],
         },
       },
     ],
@@ -66,5 +66,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     },
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   },
 });
