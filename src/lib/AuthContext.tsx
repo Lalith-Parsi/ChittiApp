@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { Platform } from 'react-native';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { resetDemoData, seedDemoData } from '../storage/demo';
+import { supabase } from './supabase';
 
 type User = FirebaseAuthTypes.User;
 
@@ -65,7 +66,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    const unsub = auth().onAuthStateChanged(u => {
+    // onIdTokenChanged fires on sign-in AND every time the Firebase JWT rotates
+    // (every ~1 hour). We use it instead of onAuthStateChanged so Supabase RLS
+    // always has a fresh token.
+    const unsub = auth().onIdTokenChanged(async u => {
+      if (u) {
+        try {
+          const token = await u.getIdToken();
+          // Inject Firebase JWT into Supabase — RLS policies read auth.jwt() ->> 'sub'
+          // which equals the Firebase UID. This is the Supabase Third-party Auth pattern.
+          await supabase.auth.setSession({ access_token: token, refresh_token: '' });
+        } catch {
+          // Token fetch failed — Supabase queries will be unauthenticated (RLS will block them).
+          // This is a degraded state; the user will see errors when trying to load data.
+        }
+      }
       setFirebaseUser(u);
       setLoading(false);
     });

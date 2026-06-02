@@ -1,13 +1,17 @@
 /**
  * Storage shim — routes every screen call to either the in-memory demo store
- * (when `__demoMode` from AuthContext is on) or to Firestore using the real
- * user's UID. Screens import from '../storage' and never know which is active.
+ * (when `__demoMode` from AuthContext is on) or to Supabase (PostgreSQL) using
+ * the real user's Firebase UID. Screens import from '../storage' and never
+ * know which backend is active.
  */
 import auth from '@react-native-firebase/auth';
 import { __demoMode } from '../lib/AuthContext';
-import * as FS from '../lib/firestore';
+import * as FS from '../lib/supabase-db';
 import * as Demo from './demo';
 import { ChittiGroup } from '../types';
+
+// Re-export public token functions used by MemberPublicViewScreen and AddMemberScreen
+export { getGroupByMemberToken, saveMemberToken } from '../lib/supabase-db';
 
 function uid(): string {
   const u = auth().currentUser;

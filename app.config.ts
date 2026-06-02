@@ -45,6 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     '@react-native-firebase/app',
     '@react-native-firebase/auth',
+    '@react-native-firebase/messaging',
     'expo-dev-client',
     [
       'expo-build-properties',

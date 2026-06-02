@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ChittiGroup, Member } from '../types';
-import { getGroupByMemberToken } from '../lib/firestore';
+import { getGroupByMemberToken } from '../lib/supabase-db';
 import { getCycleMonth } from '../utils/chitti';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../lib/ThemeContext';
